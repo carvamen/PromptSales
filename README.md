@@ -42,101 +42,126 @@ PromptSales - Ecosistema de Marketing con IA
 *Documentar aquí métricas de extensibilidad*
 
 ---
-## Domain Driven Design
-*Documentar aquí el diseño Domain Driven Design*
+## 2. Domain Driven Design
 
-### Dominios Globales
+#### 2.1.1 Dominios globales
 
-#### IAM
-- Gestiona usuarios, roles, permisos
-- Autentica y autoriza
-- SSO para todo el ecosistema
+#### identidad
+- cubre: login, roles/permisos, organizaciones (tenants)
+- objetivo: acceso seguro y mínimo necesario
 
-#### Subscripciones
-- Gestiona planes de servicio
-- Facturación y pagos
-- Límites de uso y métricas de consumo
+#### suscripciones
+- cubre: planes/tiers por subempresa y bundles
+- objetivo: alta/baja, límites de uso y renovaciones
 
-#### Integraciones / APIs
-- Gestión de conexiones externas
-- Autenticación con terceros (OAuth, API keys)
-- MCP y REST
-- Sincronización de datos entre sistemas
-- Content Platform Integration (especializado en Canva, Adobe, OpenAI API)
-- Advertising Platform Integration (especializado en Google Ads, Meta Ads, Mailchimp)
-- CRM Platform Integration (especializado en HubSpot, Salesforce, WhatsApp Business API)
+#### pagos
+- cubre: cobros, facturación, prorrateo y reembolsos
+- objetivo: registrar transacciones y estados de pago
 
-#### Channel Orchestration Domain
-- Channel selection algorithms
-- Message routing logic
-- Delivery optimization
-- Fallback strategies
-- Channel performance analytics
+#### almacenamiento
+- cubre: guardar archivos y datos grandes en la nube
+- objetivo: acceso rápido, versionado básico y permisos
 
-#### Analytics / Reporting
-- Métricas y KPIs
-- Dashboards, reportes, etc
-- Análisis de ROI, performance
+#### integraciones
+- cubre: conexiones con APIs externas (Ads, CRM, WhatsApp, OpenAI, etc.)
+- objetivo: credenciales, reintentos, cuotas y errores
 
-#### Caching / Performance
-- Cache Redis centralizado
-- Estrategias de cache
-- Optimización de tokens de IA
+#### analítica
+- cubre: métricas unificadas, dashboards, exportes
+- objetivo: funnels, ROI/ROAS y performance por cliente/campaña
 
-#### Legal & Compliance Domain (Global):
-- License management
-- Terms of service compliance
-- Rights validation service
+#### agenda
+- cubre: calendarios, recordatorios, reintentos y ventanas
+- objetivo: ejecutar tareas en el tiempo correcto
 
----
-### Dominios por Subempresa
+#### aprobaciones
+- cubre: revisión humana antes de publicar/ejecutar
+- objetivo: trazabilidad de quién aprobó qué y cuándo
 
-#### PrompContent
+#### notificaciones
+- cubre: avisos internos (email/SMS/push) no-marketing
+- objetivo: informar estados, errores y pendientes
 
-##### Content Generation
-- Creación de contenido
-- Optimización para SEO e IA
-- Personalización por audiencia
+#### IA
+- cubre: uso de modelos (prompts, costos/tokens, guardrails)
+- objetivo: reutilizar y controlar servicios de IA
 
-##### Content Management
-- Versiones, aprobaciones, ediciones, etc
-- Derechos de uso y licencias (Metadata management)
-- Organización por campañas (Content lifecycle)
+#### cache
+- cubre: resultados temporales (Redis), aceleración de consultas
+- objetivo: bajar llamadas a APIs y mejorar latencia
 
-##### External Platform
-- Integración con Canva, Adobe, OpenAI API
-- Sincronización de assets
+#### auditoría y eventos
+- cubre: logs, eventos de negocio y retención
+- objetivo: cumplimiento (GDPR/CCPA) y trazabilidad
+
+#### clientes y productos
+- cubre: empresas, contactos clave, portafolio y presupuestos
+- objetivo: base común para contenido, ads y CRM
+
+#### redes sociales
+- cubre: páginas/perfiles, publicación, comentarios/DMs y moderación (FB/IG/TikTok/LinkedIn/X)
+- objetivo: unificar permisos, webhooks, rate limits y flujo de community management
+
+#### mensajería multicanal
+- cubre: WhatsApp, SMS, Email, Webchat, Voz/IVR y Push (envío/recepción, plantillas, webhooks)
+- objetivo: unificar canales, proveedores (Twilio/Sinch/WhatsApp), opt-in/opt-out, rate limits y failover de canal
+
+
+####  2.1.2 Dominios por subempresa
+
+#### PromptContent
+
+#### contenidos
+- cubre: creación/edición de piezas (texto, imagen, video)
+- objetivo: producir materiales listos para aprobar/publicar
+
+#### plantillas
+- cubre: guías de estilo, prompts base, formatos
+- objetivo: reutilizar estilos por marca/país
+
+#### derechos
+- cubre: licencias, expiraciones y restricciones por canal/país
+- objetivo: evitar publicaciones fuera de licencia
+
 
 #### PromptAds
 
-##### Campaign Management
-- Diseño y configuración de campañas
-- Segmentación de audiencias
-- Presupuestos
+#### campañas
+- cubre: objetivos, canales, calendario y KPIs
+- objetivo: planificar qué se lanza y cuándo
 
-##### Ad Optimization
-- Análisis en tiempo real
-- Ajustes a campañas
-- Predicción de performance
+#### anuncios 
+- cubre: creación/actualización de ad sets y anuncios
+- objetivo: publicar y sincronizar con las plataformas
 
-##### Multi-Channel Distribution
-- Google ads, Meta ads, TikTok
-- Email Marketing
-- SMS y otros
+#### audiencias
+- cubre: segmentación, lookalikes y sincronización
+- objetivo: dirigir anuncios al público correcto
+
+#### políticas de plataforma
+- cubre: validaciones, rechazos y apelaciones
+- objetivo: evitar bloqueos en Google/Meta/TikTok/etc.
+
 
 #### PromptCrm
 
-##### Lead Management
-- Captura y clasificación de leads
-- Scoring y priorización
-- Seguimiento de pipeline
+#### leads
+- cubre: captura multi-fuente, normalización y enrutamiento
+- objetivo: asignar rápido al mejor agente/equipo
 
-##### Automated Engagement
-- Chatbots / Voicebots
-- Flujos de atención automatizados
-- Comunicación multi-canal
+#### contactos y cuentas
+- cubre: perfiles, empresas y roles
+- objetivo: historial de interacciones y contexto comercial
 
-##### Sales Intelligence
-- Predicción de intención de compra
-- Análisis de comportamiento
-- Recomendaciones de seguimiento
+#### conversaciones
+- cubre: chat/voz, plantillas, estados y transcripts
+- objetivo: automatizar con bots y handoff a humano
+
+#### oportunidades
+- cubre: etapas, montos, probabilidades y forecast
+- objetivo: priorizar y cerrar ventas
+
+#### tareas y SLA
+- cubre: pendientes, vencimientos y responsables
+- objetivo: cumplir tiempos de respuesta y seguimiento
+
