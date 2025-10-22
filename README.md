@@ -44,6 +44,8 @@ PromptSales - Ecosistema de Marketing con IA
 ---
 ## 2. Domain Driven Design
 
+### 2.1 Dominios globales y dominios por subempresa
+
 #### 2.1.1 Dominios globales
 
 #### identidad
