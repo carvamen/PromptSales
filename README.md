@@ -49,7 +49,7 @@ PromptSales - Ecosistema de Marketing con IA
 #### 2.1.1 Dominios globales
 
 #### identidad
-- cubre: login, roles/permisos, organizaciones (tenants)
+- cubre: login, roles/permisos, organizaciones 
 - objetivo: acceso seguro y mínimo necesario
 
 #### suscripciones
@@ -65,7 +65,7 @@ PromptSales - Ecosistema de Marketing con IA
 - objetivo: acceso rápido, versionado básico y permisos
 
 #### integraciones
-- cubre: conexiones con APIs externas (Ads, CRM, WhatsApp, OpenAI, etc.)
+- cubre: conexiones con APIs externas 
 - objetivo: credenciales, reintentos, cuotas y errores
 
 #### analítica
