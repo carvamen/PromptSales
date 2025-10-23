@@ -114,12 +114,17 @@ PromptSales - Ecosistema de Marketing con IA
 #### PromptContent
 
 #### contenidos
-- cubre: creación/edición de piezas (texto, imagen, video)
+- cubre: creación y edición de piezas
 - objetivo: producir materiales listos para aprobar/publicar
 
 #### plantillas
 - cubre: guías de estilo, prompts base, formatos
 - objetivo: reutilizar estilos por marca/país
+
+#### almacenamiento
+- cubre: almacenamiento de piezas y assets (texto, imagen, video), versiones y permisos
+- objetivo: acceso rápido y seguro; si se integra en 'contenidos', limitarlo a assets del área
+
 
 #### derechos
 - cubre: licencias, expiraciones y restricciones por canal/país
@@ -139,6 +144,15 @@ PromptSales - Ecosistema de Marketing con IA
 #### audiencias
 - cubre: segmentación, lookalikes y sincronización
 - objetivo: dirigir anuncios al público correcto
+
+
+#### redes sociales
+- cubre: gestión de perfiles/canales (FB/IG/TikTok/LinkedIn/X), publicación, comentarios/DMs
+- objetivo: unificar permisos, webhooks y límites por canal para campañas de Ads
+
+#### analítica
+- cubre: métricas de campañas y anuncios (ROAS, CTR, CPC, conversiones)
+- objetivo: insights y paneles para optimizar inversión publicitaria
 
 #### políticas de plataforma
 - cubre: validaciones, rechazos y apelaciones
@@ -166,4 +180,12 @@ PromptSales - Ecosistema de Marketing con IA
 #### tareas y SLA
 - cubre: pendientes, vencimientos y responsables
 - objetivo: cumplir tiempos de respuesta y seguimiento
+
+#### ventas
+- cubre: pedidos, cotizaciones, contratos y estados de cierre
+- objetivo: formalizar el cierre comercial y su trazabilidad
+
+#### transacciones
+- cubre: pagos asociados a ventas, estados y reembolsos
+- objetivo: registrar movimiento financiero por oportunidad/pedido
 
