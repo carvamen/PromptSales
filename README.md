@@ -8,7 +8,7 @@ PromptSales - Ecosistema de Marketing con IA
 - [Scalability](#scalability)  
 - [Reliability](#reliability)
 - [Availability](#availability)
-- [Security](#security)
+- [Security](#seguridad)
 - [Maintainability](#maintainability)
 - [Interoperability](#interoperability)
 - [Compliance](#compliance)
@@ -40,12 +40,20 @@ PromptSales - Ecosistema de Marketing con IA
 **Estructura sugerida:**
 ```
 apps/
-├── prompt-content/
-│   ├── auth/
-│   │   ├── oidc-setup.js      # Configuración del cliente OIDC
-│   │   └── middleware.js       # Middleware de validación JWT
-│   ├── server.js              # Punto de entrada principal de la aplicación
+├── shared/
+│   ├── auth/                   # SEGURIDAD COMPARTIDA
+│   │   ├── oidc-setup.js
+│   │   └── middleware.js
 │   └── package.json
+├── prompt-content/
+│   ├── server.js              # Importa desde shared/auth
+│   └── package.json
+├── prompt-ads/
+│   ├── server.js              # Importa desde shared/auth  
+│   └── package.json
+└── prompt-crm/
+    ├── server.js              # Importa desde shared/auth
+    └── package.json
 ```
 
 **Flujo de autenticación:**
@@ -109,6 +117,18 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 }
+```
+
+**Ejemplo de Implementación del Middleware:**
+```javascript
+// apps/prompt-content/server.js
+import { requireAuth } from '../../shared/auth/middleware.js';
+import { setupOIDC } from '../../shared/auth/oidc-setup.js';
+
+// Usar el middleware compartido
+app.get('/api/protected', requireAuth, (req, res) => {
+  // Lógica a implementar de promptContent
+});
 ```
 
 **Configuración de Audience por Servicio:**
@@ -244,36 +264,6 @@ spec:
         - name: AUTH0_REDIRECT_URI
           value: "https://prompt-content.promptsales.com/auth/callback"
 ```
-
-### Métricas Cuantitativas de Seguridad
-
-#### Performance de Gestión de Secrets
-
-| Métrica | Valor | Unidad | Tecnología | Justificación |
-|---------|-------|--------|------------|---------------|
-| GetSecretValue API | 10,000 | requests/segundo/región | AWS Secrets Manager | Límite de servicio AWS |
-| DescribeSecret API | 40,000 | requests/segundo/región | AWS Secrets Manager | Límite de servicio AWS |
-| Latencia de acceso | < 100 | ms | AWS Secrets Manager | SLA del servicio |
-| Tamaño máximo secretos | 65,536 | Bytes (64KB) | AWS Secrets Manager | Límite por secret |
-| Límite de secrets | 500,000 | secrets/región | AWS Secrets Manager | Capacidad máxima |
-
-**Referencia:** [Documentación AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_limits.html)
-
-AWS Secrets Manager soporta 10,000 requests/segundo por región para GetSecretValue, excediendo ampliamente nuestros requerimientos de 100,000 operaciones/hora.
-
-#### Performance de Autenticación JWT
-
-| Métrica | Valor | Unidad | Contexto |
-|---------|-------|--------|----------|
-| Throughput completo | 4,000-5,000 | requests/segundo | JWT + MySQL + JSON |
-| Latencia JWT pura | 0.8-1.2 | ms | Solo verificación JWT |
-| Escalabilidad | Lineal | hasta 100+ conexiones | Knative auto-scaling |
-| Capacidad vs Requerimiento | 150x | margen | 5,000 vs 27 ops/segundo 
-
-**Referencia:** [Benchmarks Node.js JWT](https://medium.com/deno-the-complete-reference/node-js-vs-go-performance-comparison-for-jwt-verify-and-mysql-query-98231cd22407)
-
-**Justificación:** 
-La validación local JWT permite 4K-5K requests/segundo por pod, suficiente para nuestros requerimientos de 100K operaciones/hora (27 ops/segundo) con margen de 150x.
 
 ### Maintainability
 *Documentar aquí métricas de mantenibilidad*
