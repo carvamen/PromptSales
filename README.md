@@ -9,7 +9,7 @@ PromptSales - Ecosistema de Marketing con IA
 - [Reliability](#reliability)
 - [Availability](#availability)
 - [Security](#seguridad)
-- [Maintainability](#maintainability)
+- [Maintainability](#mantenibilidad)
 - [Interoperability](#interoperability)
 - [Compliance](#compliance)
 - [Extensibility](#extensibility)
@@ -265,8 +265,119 @@ spec:
           value: "https://prompt-content.promptsales.com/auth/callback"
 ```
 
-### Maintainability
-*Documentar aquí métricas de mantenibilidad*
+### Mantenibilidad
+
+#### Proceso de Mantenimiento
+
+#### Mantenimiento Durante Desarrollo
+
+#### Sistema de Tickets
+- **Plataforma**: Jira Service Management ([REST API Reference](https://developer.atlassian.com/cloud/jira/service-desk/rest/))
+- **Flujo estandarizado**: Creación → Clasificación → Asignación → Resolución → Cierre
+- **Tipos de tickets**: Bug, Feature Request, Hotfix, Mejora, Tarea técnica
+
+#### GitFlow Implementado
+```
+main          # Producción estable (tags semánticos: v1.0.0, v1.1.0)
+develop       # Integración para próximo release
+feature/      # Desarrollo de nuevas funcionalidades
+hotfix/       # Correcciones urgentes de producción
+```
+**Referencia**: [Semantic Versioning 2.0.0](https://semver.org/)
+
+#### Estrategia de Branching
+```bash
+feature/user-auth-v2     # Nueva funcionalidad
+hotfix/critical-security # Parche urgente
+```
+
+#### Release Process
+- **Frecuencia**: Cada 3 semanas mediante pipeline CI/CD automatizado
+- **Versionado**: Semantic Versioning (MAJOR.MINOR.PATCH)
+- **Proceso**: 
+  1. Branch `release/v1.2.0` creado desde `develop`
+  2. Merge a `main` con tag de versión (ej. `v1.2.0`)
+  3. Despliegue automatizado a Knative con rolling updates
+  4. Validación por QA y Release Manager
+  5. Merge back a `develop`
+
+#### Procedimientos Kubernetes/Knative
+- **Despliegues**: Rolling updates con Knative Services
+- **Rollback**: Automático si health check falla (max 2% error rate)
+- **Escalado**: Configuración de minScale=1 para servicios críticos
+- **Health Checks**: Verificación continua de réplicas y readiness probes
+
+#### Procedimiento de Hot Fixes
+
+##### Hotfix Estándar
+- **Origen**: Branch `hotfix/<descripción>` desde `main`
+- **Responsables**: Equipo de desarrollo + Release Manager
+- **Validación**: Test rápido en ambiente staging
+- **Deployment**: Pipeline con approval manual en ArgoCD
+- **Merge**: A `main` (nuevo tag) y `develop` post-despliegue
+
+##### Hotfix de Emergencia (Severidad 1)
+- **Origen**: Branch `hotfix/emergency-<descripción>` desde `main`
+- **Proceso**: 
+  1. Build automático + test unitarios básicos
+  2. Deployment directo a producción
+  3. Approval posterior dentro de 24 horas
+  4. Validación y merge back obligatorio
+- **Trazabilidad**: Commit vinculado a ticket Jira (ej. `JIRA-123 hotfix: auth token`)
+
+**Mantenimiento Después de Implementación**
+
+**Niveles de Soporte**
+
+##### L1 - Soporte Autogestionado
+- **Medio**: Documentación, video-tutoriales, RAG en WhatsApp
+- **Cobertura**: Respuestas automáticas a consultas frecuentes
+- **Objetivo**: Resolución inmediata sin intervención humana
+
+##### L2 - Soporte Técnico Básico
+- **Medio**: Email a support@promptsales.com
+- **SLA**: 
+  - Respuesta inicial: 8 horas hábiles
+  - Resolución completa: 4 días hábiles máximo
+- **Alcance**: Configuración, uso básico, troubleshooting inicial
+
+##### L3 - Soporte de Desarrollo
+- **Medio**: Sistema de ticketing (Jira Service Management)
+- **Escalación**: Desde L2 cuando se requiere intervención de desarrollo
+- **SLAs por Severidad**:
+  - **Severidad 1** (Crítico): Respuesta < 1 hora, Resolución < 4 horas
+  - **Severidad 2** (Alto): Respuesta < 4 horas hábiles, Resolución < 24 horas
+  - **Severidad 3** (Medio): Respuesta < 8 horas hábiles, Resolución < 3 días
+  - **Severidad 4** (Bajo): Respuesta < 24 horas hábiles, Resolución < 1 semana
+- **Cobertura**: Bugs, incidentes críticos, requerimientos de desarrollo
+
+#### Sistema de Ticketing para L3
+- **Plataforma**: Jira Service Management integrado con repositorio Git
+- **Flujo**: 
+  1. Creación desde portal de soporte
+  2. Clasificación automática por categoría y severidad
+  3. Asignación a equipo de desarrollo correspondiente
+  4. Seguimiento con updates automáticos al usuario
+  5. Cierre con confirmación de resolución
+- **Métricas**: 
+  - Tiempo promedio de resolución por severidad
+  - Tickets escalados desde L2
+  - Satisfacción del usuario post-soporte
+
+#### Responsabilidades por Rol
+- **Release Manager**: Aprobación final de releases y hotfixes, coordinación de despliegues
+- **Dev Team**: Desarrollo, testing y resolución de tickets L3 según severidad
+- **QA Team**: Validación en staging pre-release y post-hotfix
+- **Support L2**: Filtro, clasificación de severidad y escalación a desarrollo
+
+#### Indicadores de Mantenibilidad
+- **Tiempo medio de resolución (MTTR)**: < 48h promedio
+- **Frecuencia de hotfixes por release**: ≤ 1 por ciclo
+- **Tickets reabiertos**: < 10%
+- **Integridad del release (builds exitosos)**: > 95%
+- **SLA cumplimiento por severidad**: > 90%
+
+Estos indicadores se revisan al cierre de cada release para evaluar la estabilidad y mantenibilidad del ecosistema PromptSales.
 
 ### Interoperability
 *Documentar aquí métricas de interoperabilidad*
