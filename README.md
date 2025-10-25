@@ -1,7 +1,7 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
-## Non-Functional Metrics
+## 1. Non-Functional Metrics
 
 ### Index
 - [Performance](#performance)
@@ -14,21 +14,21 @@ PromptSales - Ecosistema de Marketing con IA
 - [Compliance](#compliance)
 - [Extensibility](#extensibility)
 
-### Performance
+### 1.1 Performance
 *Documentar aquí métricas de performance*
 
-### Scalability
+### 1.2 Scalability
 *Documentar aquí métricas de escalabilidad*
 
-### Reliability
+### 1.3 Reliability
 *Documentar aquí métricas de confiabilidad*
 
-### Availability
+### 1.4 Availability
 *Documentar aquí métricas de disponibilidad*
 
-### Seguridad
+### 1.5 Seguridad
 
-#### Autenticación y Autorización
+#### 1.5.1 Autenticación y Autorización
 **Implementación:** OpenID Connect (OIDC) utilizando Auth0 como proveedor de identidad con validación stateless de JWT
 
 **Arquitectura sugerida:**
@@ -265,7 +265,140 @@ spec:
           value: "https://prompt-content.promptsales.com/auth/callback"
 ```
 
-### Mantenibilidad
+#### 1.5.2 Cifrado TLS 1.3 en comunicación y AES-256 en reposo.
+
+#### Bases de datos elegidas y cifrado
+Usaremos: SQL Server, MongoDB y Redis.
+
+#### Selección de cifrado por BD 
+- SQL Server (RDS/EC2):
+  - En reposo: AWS KMS AES-256 (Storage Encryption) + TDE AES-256 si la edición lo soporta.
+  - En tránsito: TLS 1.2+ (connection string: encrypt=true; trustServerCertificate=false).
+
+- MongoDB (Atlas / self-managed):
+  - En reposo: SSE-KMS AES-256; opcional Field Level Encryption (AES-256) para PII.
+  - En tránsito: TLS (connection string con tls=true).
+
+- Redis (ElastiCache):
+  - En reposo: KMS AES-256 (AtRestEncryptionEnabled: true).
+  - En tránsito: TLS (TransitEncryptionEnabled: true).
+
+**Ingress ALB (TLS 1.3)**
+```yaml
+# k8s/ingress/alb-tls13.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: promptsales-alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:111122223333:certificate/REEMPLAZAR-POR-ARN
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  rules:
+  - host: api.promptsales.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kourier
+            port:
+              number: 80
+```
+
+**Conexión SQL Server**
+#### k8s/sqlserver/sqlserver-connection.json
+```JSON
+{
+  "driver": "msnodesqlv8 or tedious",
+  "server": "REEMPLAZAR-SQLSERVER-ENDPOINT",
+  "database": "promptsales",
+  "authentication": {
+    "type": "default"
+  },
+  "options": {
+    "encrypt": true,
+    "trustServerCertificate": false,
+    "requestTimeout": 30000
+  }
+}
+```
+
+#### k8s/mongodb/mongo-connection.json
+**Conexión MongoDB**
+```JSON
+{
+  "uri": "mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/promptsales?retryWrites=true&w=majority&tls=true",
+  "options": {
+    "serverSelectionTimeoutMS": 30000
+  }
+}
+```
+
+**ElastiCache Redis**
+```yaml
+# k8s/redis/elasticache-redis.yaml 
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  RedisReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: promptsales-redis
+      ReplicationGroupDescription: Redis with in-transit and at-rest encryption
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheNodeType: cache.t3.micro
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 1
+      TransitEncryptionEnabled: true          # TLS en tránsito
+      AtRestEncryptionEnabled: true           # AES-256 en reposo (KMS)
+      KmsKeyId: arn:aws:kms:us-east-1:111122223333:key/REEMPLAZAR-CMK
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true
+```
+
+**EKS — etcd Encryption**
+```yaml
+# k8s/eks/etcd-encryption.yaml 
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+- resources:
+  - secrets
+  providers:
+  - kms:
+      name: awskms
+      endpoint: unix:///var/run/kmsplugin/socket.sock
+  - identity: {}
+```
+
+**TLS hacia Redis**
+```javascript
+// nodejs/redis-tls.js
+
+import Redis from "ioredis";
+const redis = new Redis({
+  host: process.env.REDIS_HOST,
+  port: 6379,
+  tls: {}  // habilita TLS
+});
+```
+
+**TLS en el ALB**
+```javascript
+// nodejs/express-proxy.js
+
+import express from "express";
+const app = express();
+app.set("trust proxy", true);  // respeta X-Forwarded-Proto/For
+```
+
+
+### 1.6 Maintainability
 
 #### Proceso de Mantenimiento
 
@@ -276,7 +409,7 @@ spec:
 - **Flujo estandarizado**: Creación → Clasificación → Asignación → Resolución → Cierre
 - **Tipos de tickets**: Bug, Feature Request, Hotfix, Mejora, Tarea técnica
 
-#### GitFlow Implementado
+####  GitFlow Implementado
 ```
 main          # Producción estable (tags semánticos: v1.0.0, v1.1.0)
 develop       # Integración para próximo release
@@ -285,7 +418,7 @@ hotfix/       # Correcciones urgentes de producción
 ```
 **Referencia**: [Semantic Versioning 2.0.0](https://semver.org/)
 
-#### Estrategia de Branching
+####  Estrategia de Branching
 ```bash
 feature/user-auth-v2     # Nueva funcionalidad
 hotfix/critical-security # Parche urgente
@@ -379,13 +512,13 @@ hotfix/critical-security # Parche urgente
 
 Estos indicadores se revisan al cierre de cada release para evaluar la estabilidad y mantenibilidad del ecosistema PromptSales.
 
-### Interoperability
+### 1.7 Interoperability
 *Documentar aquí métricas de interoperabilidad*
 
-### Compliance
+### 1.8 Compliance
 *Documentar aquí métricas de cumplimiento*
 
-### Extensibility
+### 1.9 Extensibility
 *Documentar aquí métricas de extensibilidad*
 
 ---
