@@ -1,7 +1,10 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
-## 1. Non-Functional Metrics
+## 1. Métrocas no funcionales
+
+Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
+
 
 ### Index
 - [Performance](#performance)
@@ -14,17 +17,132 @@ PromptSales - Ecosistema de Marketing con IA
 - [Compliance](#compliance)
 - [Extensibility](#extensibility)
 
-### 1.1 Performance
-*Documentar aquí métricas de performance*
+### 1.1 Rendimiento
 
-### 1.2 Scalability
-*Documentar aquí métricas de escalabilidad*
+La métrica se evalúa considerando el **tiempo de respuesta promedio** y las **transacciones por segundo** en condiciones simuladas equivalentes a un entorno de producción.
 
-### 1.3 Reliability
-*Documentar aquí métricas de confiabilidad*
+**Enlace al benchmark base:** https://aws.amazon.com/blogs/database/benchmarking-amazon-aurora-limitless-with-pgbench/.
 
-### 1.4 Availability
-*Documentar aquí métricas de disponibilidad*
+**En el benchmark se utilizó lo siguiente:**
+
+* **Topología de Aurora Limitless:** **2 routers** y **4 shards** (según el artículo). El sistema escala mediante **Aurora Capacity Units (ACU)**, una métrica que agrupa cómputo, memoria y red. Con el aumento de ACUs, el clúster alcanzó un techo cercano a **~2,500 transacciones por segundo** en estado estable.
+* **Carga simulada:** se empleó un **generador de carga tipo OLTP** (herramienta `pgbench`) durante **1 hora** (parámetros: tiempo de prueba de 3600 segundos, **100 clientes / 100 hilos**, factor de escala de datos de 10000). La tasa de transacciones creció desde **~320** al inicio hasta **>2,400 transacciones por segundo** al final, conforme el sistema escaló.
+* **Orquestación de conexiones:** Para aprovechar **todos** los routers, en el benchmark se recomienda ejecutar un proceso del generador de carga por router (cada uno hacia su endpoint).
+
+#### Resultados de benchmark
+
+* **Promedio en 1 hora:** **~2,042 transacciones por segundo** con **~49 milisegundos** de latencia media; **0 fallos** reportados.
+* **Al final de la hora (estado estable):** **~2,485 transacciones por segundo** con **~40 milisegundos** de latencia.
+
+#### Cálculo de referencia
+
+* **Unidad base (observada):** **~2,042 transacciones por segundo** (**122,520 transacciones por minuto**).
+
+* **Balanceando routers**:
+
+  * **Capacidad ≈ 2,042 × 2 = ~4,084 transacciones por segundo** (≈ **245,000 transacciones por minuto**).
+
+### 1.2 Escalabilidad
+Abarca la capacidad del sistema para aumentar rendimiento mediante escalado horizontal y vertical.
+
+El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámicamente los servicios según demanda.
+**Objetivo derivado del benchmark de Performance (Aurora Limitless):** **~2,042–2,485 transacciones por segundo** con **~40–49 ms** de latencia media en estado estable.
+
+**Kubernetes Cluster:**
+
+* 8 nodos base (EKS)
+* Escalado automático hasta 40 nodos (Cluster Autoscaler)
+* CPU máxima por pod = 2 vCPUs
+* RAM máxima por pod = 2 GB
+* **Meta de capacidad global:** igualar/superar **~2,485 transacciones/segundo** manteniendo **~40–49 ms** de latencia media (referencia del benchmark).
+
+**Knative Autoscaling Policy:**
+
+* Escalado basado en concurrency per pod
+* Promedio target = 100 req/pod
+* **MaxScale por servicio (estimado):** se ajustará para alcanzar el **objetivo de ~2,485 TPS** una vez medido el **RPS por pod** en staging (se derivará `maxScale = ceil(TPS_obj / RPS_por_pod)`).
+
+**Load Balancing:**
+
+* KLB (Knative Load Balancer) distribuye el tráfico de manera uniforme
+* Integración con AWS Application Load Balancer (ALB)
+
+**Archivo de configuración Kubernetes:**
+
+/k8s/knative/kubernetes-config.yaml
+
+### 1.3 Confiabilidad
+
+Se refiere al **monitoreo**, **detección temprana de fallos** y **recuperación automatizada**.
+
+Nuestro sistema se basa en una arquitectura **Serverless** y **Kubernetes (Knative)** sobre **AWS**; por consistencia operativa y menor complejidad, priorizamos **servicios nativos de AWS** e integración directa con Knative.
+
+#### Monitoreo y trazabilidad
+
+* Se va a usar **Amazon CloudWatch** de **AWS** para **métricas, logs y alarmas** (CPU, memoria vía Container Insights, latencia, códigos HTTP, colas).
+
+#### Gestión de alertas
+
+* Se va a usar **Amazon SNS** de **AWS** para **notificaciones** a **SMS** y **email**.
+* Niveles dependiendo de severidad de alerta:
+
+  * **Críticas / P1 :** caída total, **error rate ≥ 1%** por >5 min, o **p95 > 2 s** por >5 min → **SMS + email** (on-call inmediato).
+  * **Altas / P2 :** **p95 > 500 ms** por >10 min, **CPU > 80%** sostenido, **backlog** creciente en colas → **email**.
+  * **Medias / P3 :** picos breves, **retries** moderados, memoria cercana al límite → **registro en dashboard** (sin notificación).
+
+#### Recuperación automatizada
+
+* Se va a usar **Knative/Kubernetes** para **autoescalado horizontal** (HPA/Autoscaler), **múltiples réplicas**, **reinicios automáticos** y **PodDisruptionBudget** para continuar atendiendo durante mantenimientos.
+* Se va a usar **RDS Multi-AZ** de **AWS** para **failover automático** de la base de datos y **copias de seguridad** con **PITR** (Point-in-Time Recovery).
+
+### 1.4 Disponibilidad
+Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el tiempo de inactividad.
+
+**Para esto se toma como base lo siguiente:**
+
+* **99.9%** de disponibilidad anual
+
+* **Downtime (min)** ≈ **minutos del período ÷ 1000**
+
+
+**Lo cual se tiene que:**
+
+* **Año**
+
+  * Minutos en 1 año: 365 × 24 × 60 = **525,600 min**
+  * 0.1% de 525,600 = **525.6 min**
+  * 525.6 min = **8 h 45 min 36 s**
+
+* **Mes**
+
+  * Minutos en 1 mes promedio: 525,600 ÷ 12 = **43,800 min**
+  * 0.1% de 43,800 = **43.8 min**
+  * 43.8 min = **43 min 48 s**
+  
+* **Semana**
+
+  * Minutos en 1 semana: 7 × 24 × 60 = **10,080 min**
+  * 0.1% de 10,080 = **10.08 min**
+  * 10.08 min = **10 min 4.8 s** (≈ **10 min 5 s**)
+
+* **Día**
+
+  * Minutos en 1 día: 24 × 60 = **1,440 min**
+  * 0.1% de 1,440 = **1.44 min**
+  * 1.44 min = **1 min 26.4 s** (≈ **1 min 26 s**)
+
+**Cálculo de disponibilidad (demostrado):**
+
+* Fórmula:
+  * **Downtime = (1 − Availability) × Tiempo total**
+
+* Para 99.9% anual:
+  * Downtime anual = (1 − 0.999) × 525,600 min = 0.001 × 525,600 min = 525.6 min = 8 h 45 min 36 s
+
+**Esto se logrará usando distintas técnicas para alcanzar 99.9%:**
+
+* **Knative autoscaling** para mantener **múltiples réplicas** y **failover** entre pods activos.
+* Base de datos con **RDS for SQL Server ** (replicación síncrona y **failover automático**).
 
 ### 1.5 Seguridad
 
