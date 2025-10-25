@@ -1,7 +1,7 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
-## 1. Métrocas no funcionales
+## 1. Métricas no funcionales
 
 Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
 
