@@ -513,15 +513,317 @@ hotfix/critical-security # Parche urgente
 Estos indicadores se revisan al cierre de cada release para evaluar la estabilidad y mantenibilidad del ecosistema PromptSales.
 
 ### 1.7 Interoperability
-*Documentar aquí métricas de interoperabilidad*
+
+#### 1.7.1 Enfoque
+**Cómo se conecta el sistema con otros (REST y MCP).**  
+- **Modos:** **APIs REST** + **MCP servers** (Model Context Protocol) entre subempresas y con terceros.
+- **Formato:** `application/json` (UTF-8).  
+- **Auth:** OAuth2/OIDC (JWT Bearer); para M2M, Client Credentials.  
+- **Seguridad:** TLS 1.3 en el borde; TLS 1.2+ hacia servicios internos.  
+
+#### 1.7.2 REST 
+- **Base URLs por subempresa**
+  - Content: `https://api.prompt-content.promptsales.com/v1`
+  - Ads: `https://api.prompt-ads.promptsales.com/v1`
+  - CRM: `https://api.prompt-crm.promptsales.com/v1`
+- **Convenciones**
+  - **Auth:** `Authorization: Bearer <JWT>`
+  - **Paginación:** `page`, `page_size` (máx. 100)
+  - **Idempotencia (POST sensibles):** `Idempotency-Key`
+  - **Filtrado/orden:** parámetros en query; ordenar por `created_at`
+  - **Errores:** `{ code, message, details, request_id }`
+  - **Webhooks:** firma HMAC en `X-Signature` (sha256); reintentos exponenciales (7 intentos, backoff inicial 2s)
+
+**OpenAPI**
+```yaml
+openapi: 3.1.0
+info: { title: PromptSales Ads API, version: "v1" }
+servers:
+  - url: https://api.prompt-ads.promptsales.com/v1
+paths:
+  /campaigns:
+    get:
+      summary: Listar campañas
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200": { description: OK }
+    post:
+      summary: Crear campaña
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CampaignCreate" }
+      responses:
+        "201": { description: Creada }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    CampaignCreate:
+      type: object
+      required: [name, channel, start_date]
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [google, meta, tiktok, mailchimp, linkedin] }
+        budget: { type: number }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+```
+
+**Modelo de error REST:**
+```json
+{
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests",
+  "details": { "limit": 120, "window": "1m" },
+  "request_id": "c5e0f9b1-..."
+}
+```
+
+#### 1.7.3 MCP
+- **Uso:** orquestación IA/automatizaciones entre subempresas y con proveedores IA.
+- **Transporte:** TLS + OAuth2 (Client Credentials); scopes por herramienta.
+- **Contratos:** herramientas (**tools**) con esquemas JSON versionados en `contracts/mcp/`.
+- **Límites:** `rpm`/`rps` por tenant; timeouts; size máx. de payload.
+
+**Registro de server MCP:**
+```json
+{
+  "server": "mcp://ads-orchestrator",
+  "auth": { "type": "oauth2", "token_url": "https://auth.promptsales.com/oauth/token" },
+  "tools": [
+    { "name": "launch_campaign", "input_schema": { "type": "object", "properties": { "campaign_id": { "type": "string" } }, "required": ["campaign_id"] } },
+    { "name": "optimize_budget", "input_schema": { "type": "object", "properties": { "campaign_id": { "type": "string" }, "target_roas": { "type": "number" } }, "required": ["campaign_id"] } }
+  ],
+  "rate_limits": { "rpm": 300, "burst": 600 },
+  "observability": { "emit_traceparent": true, "log_level": "info" }
+}
+```
+
+#### 1.7.4 Estructura sugerida (contratos y conectores)
+```
+contracts/
+├── rest/
+│   ├── ads-openapi.yaml
+│   ├── content-openapi.yaml
+│   └── crm-openapi.yaml
+└── mcp/
+    ├── ads-orchestrator.json
+    ├── content-tools.json
+    └── crm-automation.json
+
+webhooks/
+├── topics.md
+└── schemas/
+    ├── crm.lead.created.json
+    └── ads.campaign.created.json
+```
 
 ### 1.8 Compliance
-*Documentar aquí métricas de cumplimiento*
+
+#### 1.8.1 Pagos y transparencia (terceros regulados)
+**Política:** Todo pago se procesa únicamente mediante **proveedores regulados**. No almacenamos datos de tarjetas (PAN/CVV). El cumplimiento **PCI-DSS** recae en el PSP; nosotros solo guardamos **tokens**.
+**Proveedores objetivo:** PayPal, Stripe y **BAC Credomatic**(para Costa Rica y región).
+
+**Controles:**
+- HTTPS (TLS 1.3) extremo a extremo.
+- Webhooks firmados (HMAC-SHA256) con rotación de secretos.
+- Conciliación contable periódica y trazabilidad por `payment_id`/`order_id`.
+
+#### 1.8.2 OWASP — objetivos de control
+- **Web (Frontends):** **OWASP Top 10: 2021** (A01–A10) como baseline.
+- **Backend (APIs):** **OWASP API Security Top 10: 2023** (API1–API10) como baseline. Objetivo adicional: **OWASP ASVS 4.0.3, nivel 2** para endpoints críticos.
+
+**Umbrales de severidad por release:**
+```
+Critical: 0
+High:     0
+Medium:   <= 5 (máximo 5 “warnings”)
+Low:      sin límite estricto, resolver por prioridad
+```
+**Evidencia:** reportes SAST/DAST en CI/CD (artefactos de build), pruebas de seguridad en PR y gating antes de deploy.
+
+#### 1.8.3 GDPR — datos personales y sensibles
+- **Base legal y consentimiento:** registrar base legal por propósito; consentimiento explícito y **opt-in/opt-out** por canal (WhatsApp, email, SMS).
+- **Minimización y retención:** recolectar solo lo necesario; políticas de retención por tipo de dato y borrado programado.
+- **Derechos del interesado (DSR):** acceso, rectificación, portabilidad y supresión; SLA de respuesta **menor a 30 días**.
+- **Transferencias internacionales:** usar **SCC** (Standard Contractual Clauses) con subprocesadores fuera de la UE.
+- **Acuerdos con terceros:** **DPA** firmado con PSPs, CRMs, Ads y hosting.
+- **Seguridad:** cifrado **TLS 1.3** en tránsito y **AES-256** en reposo; logging y auditoría centralizados (retención mínima 90 días).
+
+#### 1.8.4 Métricas de cumplimiento (SLOs)
+- % releases con “0 critical / 0 high” (objetivo: **100%**).
+- Tiempo medio de cierre de findings **medium**: **menor a 15 días**.
+- Tiempo de respuesta a **DSR**: **<= 30 días** (P95).
+- % pagos procesados por PSP regulado: **100%**.
+- Cobertura de contratos **DPA** con terceros activos: **100%**.
+
+#### 1.8.5 Estructura sugerida (evidencias y contratos)
+```
+compliance/
+├── owasp/
+│   ├── dast-report-latest.md
+│   └── sast-report-latest.md
+├── gdpr/
+│   ├── data-map.md          # inventario y flujos de datos
+│   ├── retention-policy.md  # periodos de retención/borrado
+│   └── dsr-procedure.md     # procedimiento de atención de derechos
+└── payments/
+    ├── psp-list.md          # PayPal, Stripe, BAC (alcance y entornos)
+    └── webhook-signing.md   # esquema de firma y rotación de secretos
+```
 
 ### 1.9 Extensibility
-*Documentar aquí métricas de extensibilidad*
 
----
+#### 1.9.1 Objetivo
+Arquitectura modular por **dominios** que permita **agregar nuevas subempresas** o **módulos (microservicios)** sin romper lo existente. Todos los componentes exponen **APIs REST** y/o **MCP servers** con contratos versionados.
+
+#### 1.9.2 Modos de extensión
+- **Nuevo dominio local (en una subempresa):**
+  1) Definir contrato **REST** (`/v1`) y opcional **MCP tool**.
+  2) Desplegar como **microservicio** Knative o módulo interno.
+  3) Publicar eventos (`<subempresa>.<dominio>.<evento>`) y suscribir webhooks.
+- **Nuevo dominio global:**
+  1) Contratos comunes (REST/MCP) en `contracts/` y esquema de eventos.
+  2) Servicio independiente (Knative) + almacenamiento propio.
+  3) SDK ligero en `apps/shared/` (adapters/ports) para consumo interno.
+- **Nueva subempresa:**
+  1) Mínimos: identidad (OIDC), logging/trace, healthz, métricas, rate-limit.
+  2) Exponer **REST** y, si usa IA/automatización, **MCP server**.
+  3) Registrar webhooks/eventos y publicar su OpenAPI/MCP en `contracts/`.
+
+#### 1.9.3 REST APIs
+- **Formato:** JSON UTF-8; **Auth:** OAuth2/OIDC (Bearer JWT); **TLS:** 1.3 en el borde.
+- **Versionado:** prefijo `/v1`; cambios incompatibles → `/v2`.
+- **Idempotencia:** cabecera `Idempotency-Key` en POST sensibles.
+- **Errores:** `{ code, message, details, request_id }`.
+
+**OpenAPI (stub —contracts/rest/newdomain-openapi.yaml):**
+```yaml
+openapi: 3.1.0
+info: { title: PromptSales NewDomain API, version: "v1" }
+servers:
+  - url: https://api.newdomain.promptsales.com/v1
+paths:
+  /resources:
+    get:
+      summary: Listar resources
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: OK }
+    post:
+      summary: Crear resource
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties: { name: { type: string } }
+      responses: { "201": { description: Creado } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+```
+
+#### 1.9.4 MCP Servers
+- **Uso:** orquestación entre dominios y tareas IA.
+- **Auth:** OAuth2 M2M (client credentials) + TLS.
+- **Contrato:** tools con esquemas JSON versionados.
+
+**Registro de server (stub — contracts/mcp/newdomain.json):**
+```json
+{
+  "server": "mcp://newdomain",
+  "auth": { "type": "oauth2", "token_url": "https://auth.promptsales.com/oauth/token" },
+  "tools": [
+    {
+      "name": "newdomain_action",
+      "input_schema": {
+        "type": "object",
+        "properties": { "resource_id": { "type": "string" } },
+        "required": ["resource_id"]
+      }
+    }
+  ],
+  "rate_limits": { "rpm": 300, "burst": 600 },
+  "observability": { "emit_traceparent": true, "log_level": "info" }
+}
+```
+
+#### 1.9.5 Estructura sugerida
+```
+apps/
+├── prompt-content/
+├── prompt-ads/
+├── prompt-crm/
+└── new-subempresa/
+services/
+├── global-identity/
+├── global-analytics/
+└── newdomain/
+contracts/
+├── rest/
+│   ├── ads-openapi.yaml
+│   ├── content-openapi.yaml
+│   ├── crm-openapi.yaml
+│   └── newdomain-openapi.yaml
+└── mcp/
+    ├── ads-orchestrator.json
+    ├── content-tools.json
+    ├── crm-automation.json
+    └── newdomain.json
+webhooks/
+├── topics.md
+└── schemas/
+    ├── crm.lead.created.json
+    ├── ads.campaign.created.json
+    └── newdomain.event.json
+```
+
+#### 1.9.6 Knative
+```yaml
+# k8s/knative/newdomain.yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: newdomain
+spec:
+  template:
+    spec:
+      containers:
+      - image: 111122223333.dkr.ecr.us-east-1.amazonaws.com/newdomain:latest
+        env:
+        - name: AUTH0_ISSUER
+          value: "https://promptsales-prod.auth0.com/"
+        - name: AUTH0_AUDIENCE
+          value: "https://api.newdomain.promptsales.com"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.observability:4317"
+```
+
+#### 1.9.7 Eventos y webhooks
+- **Nomenclatura:** `<subempresa>.<dominio>.<evento>` (ej.: `ads.campaign.created`).
+- **Entrega:** al menos una vez, firma HMAC, 7 reintentos con backoff.
+- **Compatibilidad:** agregar campos no rompe; romper → nueva versión del esquema.
+
+#### 1.9.8 DoD (Definition of Done) para una extensión
+- OpenAPI/MCP publicados en `contracts/` y validados.
+- Tests: unitarios, de contrato (Pact u OpenAPI validators) e integración.
+- Dashboards + alertas (latencia, tasa de error, saturación).
+- Rate limits configurados y `Idempotency-Key` en POST críticos.
+- Migraciones/esquemas versionados; **cero downtime** (blue/green o rolling).
+- Documentado en README con ejemplo de uso (curl y/o MCP call).
+
 ## 2. Domain Driven Design
 
 ### 2.1 Dominios globales y dominios por subempresa
