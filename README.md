@@ -1,6 +1,139 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
+**Estructura del proyecto**
+```
+.
+├── README.md
+├── assets/
+│   └── DDD-DataFlow.svg
+├── contracts/
+│   ├── rest/
+│   │   ├── identity-openapi.yaml
+│   │   ├── subscription-openapi.yaml
+│   │   ├── payment-openapi.yaml
+│   │   ├── ads-openapi.yaml
+│   │   ├── content-openapi.yaml
+│   │   └── crm-openapi.yaml
+│   └── mcp/
+│       ├── ads-orchestrator.json
+│       ├── content-tools.json
+│       └── crm-automation.json
+├── webhooks/
+│   ├── topics.md
+│   └── schemas/
+│       ├── crm.lead.created.json
+│       └── ads.campaign.created.json
+├── compliance/
+│   ├── owasp/
+│   │   ├── dast-report-latest.md
+│   │   └── sast-report-latest.md
+│   ├── gdpr/
+│   │   ├── data-map.md
+│   │   ├── retention-policy.md
+│   │   └── dsr-procedure.md
+│   └── payments/
+│       ├── psp-list.md
+│       └── webhook-signing.md
+├── k8s/
+│   ├── knative/
+│   │   ├── prompt-content.yaml
+│   │   ├── prompt-ads.yaml
+│   │   └── prompt-crm.yaml
+│   ├── ingress/
+│   │   └── alb-tls13.yaml
+│   ├── external-secrets/
+│   │   ├── service-account.yaml
+│   │   ├── secret-store.yaml
+│   │   └── external-secret.yaml
+│   ├── eks/
+│   │   └── etcd-encryption.yaml
+│   ├── sqlserver/
+│   │   └── sqlserver-connection.json
+│   ├── mongodb/
+│   │   └── mongo-connection.json
+│   └── redis/
+│       └── elasticache-redis.yaml
+└── src/
+    ├── shared/
+    │   ├── auth/
+    │   │   ├── oidc-setup.js          
+    │   │   └── middleware.js         
+    │   ├── http/
+    │   │   ├── errors.js
+    │   │   └── idempotency.js
+    │   ├── observability/
+    │   │   ├── logger.js
+    │   │   └── tracing.js
+    │   └── utils/
+    ├── gateways/
+    │   ├── rest/
+    │   │   └── AdsChannelClient.js
+    │   ├── mcp/
+    │   │   └── AdsOrchestratorClient.js
+    │   └── webhooks/
+    │       ├── verifySignature.js
+    │       └── receiver.js
+    ├── domains/
+    │   ├── identity/
+    │   │   ├── contracts/
+    │   │   │   └── IdentityContract.js
+    │   │   └── controllers/
+    │   │       ├── UserProfileController.js
+    │   │       ├── AuthenticationController.js
+    │   │       └── LoginController.js
+    │   ├── subscriptions/
+    │   │   ├── contracts/
+    │   │   │   └── SubscriptionContract.js
+    │   │   ├── controllers/
+    │   │   │   └── SubscriptionRenewalController.js
+    │   │   └── acl/
+    │   │       └── SubscriptionACL.js
+    │   ├── payments/
+    │   │   ├── contracts/
+    │   │   │   └── PaymentContract.js
+    │   │   ├── controllers/
+    │   │   │   ├── InvoiceController.js
+    │   │   │   ├── PaymentController.js
+    │   │   │   └── RefundController.js
+    │   │   └── acl/
+    │   │       └── PaymentACL.js
+    │   ├── ads/
+    │   │   ├── contracts/
+    │   │   └── controllers/
+    │   │       ├── CampaignController.js
+    │   │       ├── AudienceController.js
+    │   │       └── PolicyController.js
+    │   ├── content/
+    │   │   └── controllers/
+    │   │       ├── ContentController.js
+    │   │       └── AssetController.js
+    │   ├── crm/
+    │   │   └── controllers/
+    │   │       ├── LeadController.js
+    │   │       ├── ConversationController.js
+    │   │       └── OpportunityController.js
+    │   ├── analytics/
+    │   ├── notifications/
+    │   ├── approvals/
+    │   ├── agenda/
+    │   ├── integrations/
+    │   ├── ia/
+    │   ├── cache/
+    │   ├── audit-events/
+    │   ├── clients-products/
+    │   ├── social/
+    │   └── messaging-multicanal/
+    └── apps/
+        ├── prompt-content/
+        │   └── server.js
+        ├── prompt-ads/
+        │   └── server.js
+        └── prompt-crm/
+            └── server.js
+
+```
+
 # 1. Métricas no funcionales
 
 Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
@@ -154,25 +287,6 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 - Express.js con librería `openid-client` para integración OIDC
 - Validación stateless de tokens para escalado de Knative
 - Flujo estándar Authorization Code con autenticación de cliente
-
-**Estructura sugerida:**
-```
-apps/
-├── shared/
-│   ├── auth/                   # SEGURIDAD COMPARTIDA
-│   │   ├── oidc-setup.js
-│   │   └── middleware.js
-│   └── package.json
-├── prompt-content/
-│   ├── server.js              # Importa desde shared/auth
-│   └── package.json
-├── prompt-ads/
-│   ├── server.js              # Importa desde shared/auth  
-│   └── package.json
-└── prompt-crm/
-    ├── server.js              # Importa desde shared/auth
-    └── package.json
-```
 
 **Flujo de autenticación:**
 
@@ -515,7 +629,6 @@ const app = express();
 app.set("trust proxy", true);  // respeta X-Forwarded-Proto/For
 ```
 
-
 ## 1.6 Maintainability
 
 ### Proceso de Mantenimiento
@@ -523,7 +636,7 @@ app.set("trust proxy", true);  // respeta X-Forwarded-Proto/For
 ### Mantenimiento Durante Desarrollo
 
 ### Sistema de Tickets
-- **Plataforma**: Jira Service Management ([REST API Reference](https://developer.atlassian.com/cloud/jira/service-desk/rest/))
+- **Plataforma**: Jira Service Management
 - **Flujo estandarizado**: Creación → Clasificación → Asignación → Resolución → Cierre
 - **Tipos de tickets**: Bug, Feature Request, Hotfix, Mejora, Tarea técnica
 
@@ -723,28 +836,9 @@ components:
 }
 ```
 
-### 1.7.4 Estructura sugerida (contratos y conectores)
-```
-contracts/
-├── rest/
-│   ├── ads-openapi.yaml
-│   ├── content-openapi.yaml
-│   └── crm-openapi.yaml
-└── mcp/
-    ├── ads-orchestrator.json
-    ├── content-tools.json
-    └── crm-automation.json
-
-webhooks/
-├── topics.md
-└── schemas/
-    ├── crm.lead.created.json
-    └── ads.campaign.created.json
-```
-
 ## 1.8 Compliance
 
-#### 1.8.1 Pagos y transparencia (terceros regulados)
+### 1.8.1 Pagos y transparencia (terceros regulados)
 **Política:** Todo pago se procesa únicamente mediante **proveedores regulados**. No almacenamos datos de tarjetas (PAN/CVV). El cumplimiento **PCI-DSS** recae en el PSP; nosotros solo guardamos **tokens**.
 **Proveedores objetivo:** PayPal, Stripe y **BAC Credomatic**(para Costa Rica y región).
 
@@ -781,47 +875,36 @@ Low:      sin límite estricto, resolver por prioridad
 - % pagos procesados por PSP regulado: **100%**.
 - Cobertura de contratos **DPA** con terceros activos: **100%**.
 
-### 1.8.5 Estructura sugerida (evidencias y contratos)
-```
-compliance/
-├── owasp/
-│   ├── dast-report-latest.md
-│   └── sast-report-latest.md
-├── gdpr/
-│   ├── data-map.md          # inventario y flujos de datos
-│   ├── retention-policy.md  # periodos de retención/borrado
-│   └── dsr-procedure.md     # procedimiento de atención de derechos
-└── payments/
-    ├── psp-list.md          # PayPal, Stripe, BAC (alcance y entornos)
-    └── webhook-signing.md   # esquema de firma y rotación de secretos
-```
-
 ## 1.9 Extensibility
 
 ### 1.9.1 Objetivo
-Arquitectura modular por **dominios** que permita **agregar nuevas subempresas** o **módulos (microservicios)** sin romper lo existente. Todos los componentes exponen **APIs REST** y/o **MCP servers** con contratos versionados.
+Arquitectura modular por **dominios** que permita **agregar nuevas subempresas** o **módulos/microservicios** sin romper lo existente. Todos los componentes exponen **APIs REST** y/o **MCP servers** con contratos versionados.
 
-### 1.9.2 Modos de extensión
+### 1.9.2 Modos de extensión (checklist)
 - **Nuevo dominio local (en una subempresa):**
-  1) Definir contrato **REST** (`/v1`) y opcional **MCP tool**.
-  2) Desplegar como **microservicio** Knative o módulo interno.
-  3) Publicar eventos (`<subempresa>.<dominio>.<evento>`) y suscribir webhooks.
-- **Nuevo dominio global:**
-  1) Contratos comunes (REST/MCP) en `contracts/` y esquema de eventos.
-  2) Servicio independiente (Knative) + almacenamiento propio.
-  3) SDK ligero en `apps/shared/` (adapters/ports) para consumo interno.
-- **Nueva subempresa:**
-  1) Mínimos: identidad (OIDC), logging/trace, healthz, métricas, rate-limit.
-  2) Exponer **REST** y, si usa IA/automatización, **MCP server**.
-  3) Registrar webhooks/eventos y publicar su OpenAPI/MCP en `contracts/`.
+  1) Crear carpeta `src/domains/<newdomain>/` con `contracts/` y `controllers/`.
+  2) Definir contrato **REST** en `contracts/rest/<newdomain>-openapi.yaml` (usar plantilla de 1.9.3).
+  3) (Opcional IA) Definir **MCP tool** en `contracts/mcp/<newdomain>.json` (plantilla de 1.9.4).
+  4) Publicar eventos (`<subempresa>.<dominio>.<evento>`) y registrar **webhooks**.
+  5) Desplegar microservicio Knative `k8s/knative/<newdomain>.yaml` (plantilla de 1.9.5).
+- **Nuevo dominio global:** igual que arriba, como **servicio independiente**; colocar SDK liviano en `src/shared/` si aplica.
+- **Nueva subempresa:** mínimos: OIDC, logging/trace, `healthz`, métricas, rate-limit. Exponer **REST** y, si usa IA, **MCP server**.
 
-### 1.9.3 REST APIs
-- **Formato:** JSON UTF-8; **Auth:** OAuth2/OIDC (Bearer JWT); **TLS:** 1.3 en el borde.
-- **Versionado:** prefijo `/v1`; cambios incompatibles → `/v2`.
-- **Idempotencia:** cabecera `Idempotency-Key` en POST sensibles.
-- **Errores:** `{ code, message, details, request_id }`.
+### 1.9.3 REST APIs (plantilla oficial para NUEVOS dominios)
+**Qué es:** Plantilla para crear la **API REST** de un dominio nuevo. **No es un servicio real**; estandariza formato, auth, versionado e idempotencia.
 
-**OpenAPI (stub —contracts/rest/newdomain-openapi.yaml):**
+**Dónde guardarlo**
+- `contracts/rest/<newdomain>-openapi.yaml`
+
+**Qué editar**
+- Reemplazar `<newdomain>`, ajustar `servers.url`, `paths`, `schemas`.
+
+**Cómo desplegar**
+1. Validar contrato (lint).
+2. Subir a repo (PR).
+3. Implementar handlers en `src/domains/<newdomain>/controllers/` y mapear rutas en `src/apps/<subempresa>/server.js`.
+
+**OpenAPI (plantilla base — `contracts/rest/newdomain-openapi.yaml`):**
 ```yaml
 openapi: 3.1.0
 info: { title: PromptSales NewDomain API, version: "v1" }
@@ -851,12 +934,27 @@ components:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
 ```
 
-### 1.9.4 MCP Servers
-- **Uso:** orquestación entre dominios y tareas IA.
-- **Auth:** OAuth2 M2M (client credentials) + TLS.
-- **Contrato:** tools con esquemas JSON versionados.
+**Convenciones obligatorias**
+- **Formato:** JSON UTF-8. **Auth:** OAuth2/OIDC (Bearer JWT).
+- **TLS:** 1.3 en el borde. **Versionado:** `/v1`; breaking ⇒ `/v2`.
+- **Idempotencia (POST críticos):** `Idempotency-Key`.
+- **Errores estándar:** `{ code, message, details, request_id }`.
 
-**Registro de server (stub — contracts/mcp/newdomain.json):**
+### 1.9.4 MCP Servers
+**Uso:** Orquestación IA/automatizaciones entre dominios y con terceros.
+
+**Dónde guardarlo**
+- `contracts/mcp/<newdomain>.json`
+
+**Qué editar**
+- `server`, `tools[].name`, `input_schema`, `auth.token_url`.
+
+**Cómo desplegar**
+- Implementar el server como microservicio Knative o módulo del existente.
+- Registrar credenciales (client credentials) vía External Secrets.
+
+
+**Registro de server MCP (plantilla base — `contracts/mcp/newdomain.json`):**
 ```json
 {
   "server": "mcp://newdomain",
@@ -876,39 +974,19 @@ components:
 }
 ```
 
-### 1.9.5 Estructura sugerida
-```
-apps/
-├── prompt-content/
-├── prompt-ads/
-├── prompt-crm/
-└── new-subempresa/
-services/
-├── global-identity/
-├── global-analytics/
-└── newdomain/
-contracts/
-├── rest/
-│   ├── ads-openapi.yaml
-│   ├── content-openapi.yaml
-│   ├── crm-openapi.yaml
-│   └── newdomain-openapi.yaml
-└── mcp/
-    ├── ads-orchestrator.json
-    ├── content-tools.json
-    ├── crm-automation.json
-    └── newdomain.json
-webhooks/
-├── topics.md
-└── schemas/
-    ├── crm.lead.created.json
-    ├── ads.campaign.created.json
-    └── newdomain.event.json
-```
+### 1.9.5 Knative 
+**Dónde guardarlo**
+- `k8s/knative/<newdomain>.yaml`
 
-### 1.9.6 Knative
+**Qué editar**
+- `metadata.name`, `containers.image`, `AUTH0_AUDIENCE`, etc.
+
+**Cómo desplegar**
+kubectl apply -f k8s/knative/<newdomain>.yaml
+kubectl get ksvc newdomain
+
+**Knative Service (plantilla base — `k8s/knative/newdomain.yaml`):**
 ```yaml
-# k8s/knative/newdomain.yaml
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
@@ -929,18 +1007,26 @@ spec:
           value: "http://otel-collector.observability:4317"
 ```
 
-### 1.9.7 Eventos y webhooks
-- **Nomenclatura:** `<subempresa>.<dominio>.<evento>` (ej.: `ads.campaign.created`).
-- **Entrega:** al menos una vez, firma HMAC, 7 reintentos con backoff.
-- **Compatibilidad:** agregar campos no rompe; romper → nueva versión del esquema.
+### 1.9.6 Eventos y webhooks
+**Dónde guardarlo**
+- Tópicos: `webhooks/topics.md`
+- Esquemas: `webhooks/schemas/<newdomain>.<event>.json`
 
-### 1.9.8 DoD (Definition of Done) para una extensión
-- OpenAPI/MCP publicados en `contracts/` y validados.
-- Tests: unitarios, de contrato (Pact u OpenAPI validators) e integración.
-- Dashboards + alertas (latencia, tasa de error, saturación).
-- Rate limits configurados y `Idempotency-Key` en POST críticos.
-- Migraciones/esquemas versionados; **cero downtime** (blue/green o rolling).
-- Documentado en README con ejemplo de uso (curl y/o MCP call).
+**Qué editar**
+- Agregar evento a `topics.md` y crear su esquema JSON.
+
+**Cómo desplegar**
+- Endpoint receptor en `src/gateways/webhooks/receiver.js` con firma HMAC.
+
+### 1.9.7 Definition of Done (DoD) para una extensión
+- OpenAPI/MCP en `contracts/` **validados** (lint + CI).
+- Handlers implementados + tests unitarios y de contrato.
+- YAML de Knative aplicado y `healthz` OK.
+- Dashboards/alertas creados (latencia, error rate, saturación).
+- Rate limits y `Idempotency-Key` en POST críticos.
+- Migraciones/versionado de esquema sin downtime (rolling/blue/green).
+- README con ejemplo `curl` y/o invocación MCP documentados.
+
 
 # 2. Domain Driven Design
 
@@ -948,146 +1034,77 @@ spec:
 
 ### 2.1.1 Dominios globales
 
-### identidad
-- cubre: login, roles/permisos, organizaciones 
-- objetivo: acceso seguro y mínimo necesario
+#### identidad
 
-### suscripciones
-- cubre: planes/tiers por subempresa y bundles
-- objetivo: alta/baja, límites de uso y renovaciones
+#### suscripciones
 
-### pagos
-- cubre: cobros, facturación, prorrateo y reembolsos
-- objetivo: registrar transacciones y estados de pago
+#### pagos
 
-### almacenamiento
-- cubre: guardar archivos y datos grandes en la nube
-- objetivo: acceso rápido, versionado básico y permisos
+#### almacenamiento
 
-### integraciones
-- cubre: conexiones con APIs externas 
-- objetivo: credenciales, reintentos, cuotas y errores
+#### integraciones
 
-### analítica
-- cubre: métricas unificadas, dashboards, exportes
-- objetivo: funnels, ROI/ROAS y performance por cliente/campaña
+#### analítica
 
-### agenda
-- cubre: calendarios, recordatorios, reintentos y ventanas
-- objetivo: ejecutar tareas en el tiempo correcto
+#### agenda
 
-### aprobaciones
-- cubre: revisión humana antes de publicar/ejecutar
-- objetivo: trazabilidad de quién aprobó qué y cuándo
+#### aprobaciones
 
-### notificaciones
-- cubre: avisos internos (email/SMS/push) no-marketing
-- objetivo: informar estados, errores y pendientes
+#### notificaciones
 
-### IA
-- cubre: uso de modelos (prompts, costos/tokens, guardrails)
-- objetivo: reutilizar y controlar servicios de IA
+#### IA
 
-### cache
-- cubre: resultados temporales (Redis), aceleración de consultas
-- objetivo: bajar llamadas a APIs y mejorar latencia
+#### cache
 
-### auditoría y eventos
-- cubre: logs, eventos de negocio y retención
-- objetivo: cumplimiento (GDPR/CCPA) y trazabilidad
+#### auditoría y eventos
 
-### clientes y productos
-- cubre: empresas, contactos clave, portafolio y presupuestos
-- objetivo: base común para contenido, ads y CRM
+#### clientes y productos
 
-### redes sociales
-- cubre: páginas/perfiles, publicación, comentarios/DMs y moderación (FB/IG/TikTok/LinkedIn/X)
-- objetivo: unificar permisos, webhooks, rate limits y flujo de community management
+#### redes sociales
 
-### mensajería multicanal
-- cubre: WhatsApp, SMS, Email, Webchat, Voz/IVR y Push (envío/recepción, plantillas, webhooks)
-- objetivo: unificar canales, proveedores (Twilio/Sinch/WhatsApp), opt-in/opt-out, rate limits y failover de canal
-
+#### mensajería multicanal
 
 ###  2.1.2 Dominios por subempresa
 
 ### PromptContent
 
-### contenidos
-- cubre: creación y edición de piezas
-- objetivo: producir materiales listos para aprobar/publicar
+#### contenidos
 
-### plantillas
-- cubre: guías de estilo, prompts base, formatos
-- objetivo: reutilizar estilos por marca/país
+#### plantillas
 
-### almacenamiento
-- cubre: almacenamiento de piezas y assets (texto, imagen, video), versiones y permisos
-- objetivo: acceso rápido y seguro; si se integra en 'contenidos', limitarlo a assets del área
+#### almacenamiento
 
-
-### derechos
-- cubre: licencias, expiraciones y restricciones por canal/país
-- objetivo: evitar publicaciones fuera de licencia
-
+#### derechos
 
 ### PromptAds
 
-### campañas
-- cubre: objetivos, canales, calendario y KPIs
-- objetivo: planificar qué se lanza y cuándo
+#### campañas
 
-### anuncios 
-- cubre: creación/actualización de ad sets y anuncios
-- objetivo: publicar y sincronizar con las plataformas
+#### anuncios 
 
-### audiencias
-- cubre: segmentación, lookalikes y sincronización
-- objetivo: dirigir anuncios al público correcto
+#### audiencias
 
+#### redes sociales
 
-### redes sociales
-- cubre: gestión de perfiles/canales (FB/IG/TikTok/LinkedIn/X), publicación, comentarios/DMs
-- objetivo: unificar permisos, webhooks y límites por canal para campañas de Ads
+#### analítica
 
-### analítica
-- cubre: métricas de campañas y anuncios (ROAS, CTR, CPC, conversiones)
-- objetivo: insights y paneles para optimizar inversión publicitaria
-
-### políticas de plataforma
-- cubre: validaciones, rechazos y apelaciones
-- objetivo: evitar bloqueos en Google/Meta/TikTok/etc.
-
+#### políticas de plataforma
 
 ### PromptCrm
 
-### leads
-- cubre: captura multi-fuente, normalización y enrutamiento
-- objetivo: asignar rápido al mejor agente/equipo
+#### leads
 
-### contactos y cuentas
-- cubre: perfiles, empresas y roles
-- objetivo: historial de interacciones y contexto comercial
+#### contactos y cuentas
 
-### conversaciones
-- cubre: chat/voz, plantillas, estados y transcripts
-- objetivo: automatizar con bots y handoff a humano
+#### conversaciones
 
-### oportunidades
-- cubre: etapas, montos, probabilidades y forecast
-- objetivo: priorizar y cerrar ventas
+#### oportunidades
 
-### tareas y SLA
-- cubre: pendientes, vencimientos y responsables
-- objetivo: cumplir tiempos de respuesta y seguimiento
+#### tareas y SLA
 
-### ventas
-- cubre: pedidos, cotizaciones, contratos y estados de cierre
-- objetivo: formalizar el cierre comercial y su trazabilidad
+#### ventas
 
-### transacciones
-- cubre: pagos asociados a ventas, estados y reembolsos
-- objetivo: registrar movimiento financiero por oportunidad/pedido
+#### transacciones
 
 ## 2.2 Interacción y Flujo de Datos
 
