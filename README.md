@@ -1108,6 +1108,6 @@ spec:
 
 ## 2.2 Interacción y Flujo de Datos
 
-Dentro de cada dominio se tienen las funcionalidades separadas por controllers. Para funcionalidades cross-domain los controllers NO pueden llamar directamente a controllers de otros dominios, para esto deben usar los contratos como se muestra en el siguiente diagrama de ejemplo.
+Dentro de cada dominio se tienen las funcionalidades separadas por controllers. Para funcionalidades cross-domain los controllers NO pueden llamar directamente a controllers de otros dominios, para esto deben usar el anti corruption layer, quien se encarga de llamar al contrato del dominio. Todos los tests deben hacerse al anti corruption layer.
 
 ![Ejemplo de llamadas cross-domain](assets/DDD-DataFlow.svg)
