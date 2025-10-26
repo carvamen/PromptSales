@@ -1,0 +1,91 @@
+openapi: 3.0.0
+info:
+  title: Payment API
+  version: 1.0.0
+paths:
+  /payments/process:
+    post:
+      operationId: processPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: Payment processing result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResult'
+  
+  /payments/invoices:
+    post:
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+      responses:
+        '200':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+components:
+  schemas:
+    PaymentRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - paymentMethodId
+      properties:
+        amount:
+          type: number
+        currency:
+          type: string
+        paymentMethodId:
+          type: string
+        description:
+          type: string
+    PaymentResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        status:
+          type: string
+        errorMessage:
+          type: string
+    InvoiceRequest:
+      type: object
+      required:
+        - subscriptionId
+        - amount
+      properties:
+        subscriptionId:
+          type: string
+        amount:
+          type: number
+        description:
+          type: string
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+        dueDate:
+          type: string
+          format: date-time

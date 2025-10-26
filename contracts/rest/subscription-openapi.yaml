@@ -1,0 +1,82 @@
+openapi: 3.0.0
+info:
+  title: Subscription API
+  version: 1.0.0
+paths:
+  /subscriptions/status:
+    get:
+      operationId: getUserSubscriptionStatus
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: serviceType
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatus'
+  
+  /subscriptions/limits:
+    post:
+      operationId: checkUsageLimits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageLimitRequest'
+      responses:
+        '200':
+          description: Usage limit check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageLimitResult'
+
+components:
+  schemas:
+    SubscriptionStatus:
+      type: object
+      properties:
+        active:
+          type: boolean
+        plan:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        features:
+          type: array
+          items:
+            type: string
+    UsageLimitRequest:
+      type: object
+      required:
+        - organizationId
+        - serviceType
+      properties:
+        organizationId:
+          type: string
+        serviceType:
+          type: string
+    UsageLimitResult:
+      type: object
+      properties:
+        withinLimits:
+          type: boolean
+        currentUsage:
+          type: number
+        limit:
+          type: number
+        resetTime:
+          type: string
+          format: date-time

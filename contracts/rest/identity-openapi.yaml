@@ -1,0 +1,79 @@
+openapi: 3.0.0
+info:
+  title: Identity API
+  version: 1.0.0
+paths:
+  /auth/verify-permission:
+    post:
+      operationId: verifyUserPermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPermissionRequest'
+      responses:
+        '200':
+          description: Permission verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionResult'
+  
+  /organizations/{organizationId}/members:
+    get:
+      operationId: getOrganizationMembers
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization members
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMembers'
+
+components:
+  schemas:
+    VerifyPermissionRequest:
+      type: object
+      required:
+        - userId
+        - organizationId
+        - permission
+      properties:
+        userId:
+          type: string
+        organizationId:
+          type: string
+        permission:
+          type: string
+    PermissionResult:
+      type: object
+      properties:
+        hasPermission:
+          type: boolean
+        reason:
+          type: string
+    OrganizationMembers:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string

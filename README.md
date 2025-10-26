@@ -1,12 +1,12 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
-## 1. Métricas no funcionales
+# 1. Métricas no funcionales
 
 Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
 
 
-### Index
+## Index
 - [Performance](#performance)
 - [Scalability](#scalability)  
 - [Reliability](#reliability)
@@ -17,7 +17,7 @@ Para todas las métricas no funcionales y la estructura general del ecosistema P
 - [Compliance](#compliance)
 - [Extensibility](#extensibility)
 
-### 1.1 Rendimiento
+## 1.1 Rendimiento
 
 La métrica se evalúa considerando el **tiempo de respuesta promedio** y las **transacciones por segundo** en condiciones simuladas equivalentes a un entorno de producción.
 
@@ -29,12 +29,12 @@ La métrica se evalúa considerando el **tiempo de respuesta promedio** y las **
 * **Carga simulada:** se empleó un **generador de carga tipo OLTP** (herramienta `pgbench`) durante **1 hora** (parámetros: tiempo de prueba de 3600 segundos, **100 clientes / 100 hilos**, factor de escala de datos de 10000). La tasa de transacciones creció desde **~320** al inicio hasta **>2,400 transacciones por segundo** al final, conforme el sistema escaló.
 * **Orquestación de conexiones:** Para aprovechar **todos** los routers, en el benchmark se recomienda ejecutar un proceso del generador de carga por router (cada uno hacia su endpoint).
 
-#### Resultados de benchmark
+### Resultados de benchmark
 
 * **Promedio en 1 hora:** **~2,042 transacciones por segundo** con **~49 milisegundos** de latencia media; **0 fallos** reportados.
 * **Al final de la hora (estado estable):** **~2,485 transacciones por segundo** con **~40 milisegundos** de latencia.
 
-#### Cálculo de referencia
+### Cálculo de referencia
 
 * **Unidad base (observada):** **~2,042 transacciones por segundo** (**122,520 transacciones por minuto**).
 
@@ -42,7 +42,7 @@ La métrica se evalúa considerando el **tiempo de respuesta promedio** y las **
 
   * **Capacidad ≈ 2,042 × 2 = ~4,084 transacciones por segundo** (≈ **245,000 transacciones por minuto**).
 
-### 1.2 Escalabilidad
+## 1.2 Escalabilidad
 Abarca la capacidad del sistema para aumentar rendimiento mediante escalado horizontal y vertical.
 
 El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámicamente los servicios según demanda.
@@ -71,17 +71,17 @@ El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámic
 
 /k8s/knative/kubernetes-config.yaml
 
-### 1.3 Confiabilidad
+## 1.3 Confiabilidad
 
 Se refiere al **monitoreo**, **detección temprana de fallos** y **recuperación automatizada**.
 
 Nuestro sistema se basa en una arquitectura **Serverless** y **Kubernetes (Knative)** sobre **AWS**; por consistencia operativa y menor complejidad, priorizamos **servicios nativos de AWS** e integración directa con Knative.
 
-#### Monitoreo y trazabilidad
+### Monitoreo y trazabilidad
 
 * Se va a usar **Amazon CloudWatch** de **AWS** para **métricas, logs y alarmas** (CPU, memoria vía Container Insights, latencia, códigos HTTP, colas).
 
-#### Gestión de alertas
+### Gestión de alertas
 
 * Se va a usar **Amazon SNS** de **AWS** para **notificaciones** a **SMS** y **email**.
 * Niveles dependiendo de severidad de alerta:
@@ -90,12 +90,12 @@ Nuestro sistema se basa en una arquitectura **Serverless** y **Kubernetes (Knati
   * **Altas / P2 :** **p95 > 500 ms** por >10 min, **CPU > 80%** sostenido, **backlog** creciente en colas → **email**.
   * **Medias / P3 :** picos breves, **retries** moderados, memoria cercana al límite → **registro en dashboard** (sin notificación).
 
-#### Recuperación automatizada
+### Recuperación automatizada
 
 * Se va a usar **Knative/Kubernetes** para **autoescalado horizontal** (HPA/Autoscaler), **múltiples réplicas**, **reinicios automáticos** y **PodDisruptionBudget** para continuar atendiendo durante mantenimientos.
 * Se va a usar **RDS Multi-AZ** de **AWS** para **failover automático** de la base de datos y **copias de seguridad** con **PITR** (Point-in-Time Recovery).
 
-### 1.4 Disponibilidad
+## 1.4 Disponibilidad
 Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el tiempo de inactividad.
 
 **Para esto se toma como base lo siguiente:**
@@ -144,9 +144,9 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 * **Knative autoscaling** para mantener **múltiples réplicas** y **failover** entre pods activos.
 * Base de datos con **RDS for SQL Server ** (replicación síncrona y **failover automático**).
 
-### 1.5 Seguridad
+## 1.5 Seguridad
 
-#### 1.5.1 Autenticación y Autorización
+### 1.5.1 Autenticación y Autorización
 **Implementación:** OpenID Connect (OIDC) utilizando Auth0 como proveedor de identidad con validación stateless de JWT
 
 **Arquitectura sugerida:**
@@ -275,7 +275,7 @@ env:
 ```
 
 
-#### Gestión de Secrets
+### Gestión de Secrets
 **Implementación:** External Secrets Operator + AWS Secrets Manager con IAM Roles for Service Accounts (IRSA)
 
 **Arquitectura:**
@@ -383,7 +383,7 @@ spec:
           value: "https://prompt-content.promptsales.com/auth/callback"
 ```
 
-#### 1.5.2 Cifrado TLS 1.3 en comunicación y AES-256 en reposo.
+### 1.5.2 Cifrado TLS 1.3 en comunicación y AES-256 en reposo.
 
 #### Bases de datos elegidas y cifrado
 Usaremos: SQL Server, MongoDB y Redis.
@@ -429,7 +429,7 @@ spec:
 ```
 
 **Conexión SQL Server**
-#### k8s/sqlserver/sqlserver-connection.json
+### k8s/sqlserver/sqlserver-connection.json
 ```JSON
 {
   "driver": "msnodesqlv8 or tedious",
@@ -446,7 +446,7 @@ spec:
 }
 ```
 
-#### k8s/mongodb/mongo-connection.json
+### k8s/mongodb/mongo-connection.json
 **Conexión MongoDB**
 ```JSON
 {
@@ -516,18 +516,18 @@ app.set("trust proxy", true);  // respeta X-Forwarded-Proto/For
 ```
 
 
-### 1.6 Maintainability
+## 1.6 Maintainability
 
-#### Proceso de Mantenimiento
+### Proceso de Mantenimiento
 
-#### Mantenimiento Durante Desarrollo
+### Mantenimiento Durante Desarrollo
 
-#### Sistema de Tickets
+### Sistema de Tickets
 - **Plataforma**: Jira Service Management ([REST API Reference](https://developer.atlassian.com/cloud/jira/service-desk/rest/))
 - **Flujo estandarizado**: Creación → Clasificación → Asignación → Resolución → Cierre
 - **Tipos de tickets**: Bug, Feature Request, Hotfix, Mejora, Tarea técnica
 
-####  GitFlow Implementado
+###  GitFlow Implementado
 ```
 main          # Producción estable (tags semánticos: v1.0.0, v1.1.0)
 develop       # Integración para próximo release
@@ -536,13 +536,13 @@ hotfix/       # Correcciones urgentes de producción
 ```
 **Referencia**: [Semantic Versioning 2.0.0](https://semver.org/)
 
-####  Estrategia de Branching
+###  Estrategia de Branching
 ```bash
 feature/user-auth-v2     # Nueva funcionalidad
 hotfix/critical-security # Parche urgente
 ```
 
-#### Release Process
+### Release Process
 - **Frecuencia**: Cada 3 semanas mediante pipeline CI/CD automatizado
 - **Versionado**: Semantic Versioning (MAJOR.MINOR.PATCH)
 - **Proceso**: 
@@ -552,22 +552,22 @@ hotfix/critical-security # Parche urgente
   4. Validación por QA y Release Manager
   5. Merge back a `develop`
 
-#### Procedimientos Kubernetes/Knative
+### Procedimientos Kubernetes/Knative
 - **Despliegues**: Rolling updates con Knative Services
 - **Rollback**: Automático si health check falla (max 2% error rate)
 - **Escalado**: Configuración de minScale=1 para servicios críticos
 - **Health Checks**: Verificación continua de réplicas y readiness probes
 
-#### Procedimiento de Hot Fixes
+### Procedimiento de Hot Fixes
 
-##### Hotfix Estándar
+#### Hotfix Estándar
 - **Origen**: Branch `hotfix/<descripción>` desde `main`
 - **Responsables**: Equipo de desarrollo + Release Manager
 - **Validación**: Test rápido en ambiente staging
 - **Deployment**: Pipeline con approval manual en ArgoCD
 - **Merge**: A `main` (nuevo tag) y `develop` post-despliegue
 
-##### Hotfix de Emergencia (Severidad 1)
+#### Hotfix de Emergencia (Severidad 1)
 - **Origen**: Branch `hotfix/emergency-<descripción>` desde `main`
 - **Proceso**: 
   1. Build automático + test unitarios básicos
@@ -580,19 +580,19 @@ hotfix/critical-security # Parche urgente
 
 **Niveles de Soporte**
 
-##### L1 - Soporte Autogestionado
+#### L1 - Soporte Autogestionado
 - **Medio**: Documentación, video-tutoriales, RAG en WhatsApp
 - **Cobertura**: Respuestas automáticas a consultas frecuentes
 - **Objetivo**: Resolución inmediata sin intervención humana
 
-##### L2 - Soporte Técnico Básico
+#### L2 - Soporte Técnico Básico
 - **Medio**: Email a support@promptsales.com
 - **SLA**: 
   - Respuesta inicial: 8 horas hábiles
   - Resolución completa: 4 días hábiles máximo
 - **Alcance**: Configuración, uso básico, troubleshooting inicial
 
-##### L3 - Soporte de Desarrollo
+#### L3 - Soporte de Desarrollo
 - **Medio**: Sistema de ticketing (Jira Service Management)
 - **Escalación**: Desde L2 cuando se requiere intervención de desarrollo
 - **SLAs por Severidad**:
@@ -602,7 +602,7 @@ hotfix/critical-security # Parche urgente
   - **Severidad 4** (Bajo): Respuesta < 24 horas hábiles, Resolución < 1 semana
 - **Cobertura**: Bugs, incidentes críticos, requerimientos de desarrollo
 
-#### Sistema de Ticketing para L3
+### Sistema de Ticketing para L3
 - **Plataforma**: Jira Service Management integrado con repositorio Git
 - **Flujo**: 
   1. Creación desde portal de soporte
@@ -615,13 +615,13 @@ hotfix/critical-security # Parche urgente
   - Tickets escalados desde L2
   - Satisfacción del usuario post-soporte
 
-#### Responsabilidades por Rol
+### Responsabilidades por Rol
 - **Release Manager**: Aprobación final de releases y hotfixes, coordinación de despliegues
 - **Dev Team**: Desarrollo, testing y resolución de tickets L3 según severidad
 - **QA Team**: Validación en staging pre-release y post-hotfix
 - **Support L2**: Filtro, clasificación de severidad y escalación a desarrollo
 
-#### Indicadores de Mantenibilidad
+### Indicadores de Mantenibilidad
 - **Tiempo medio de resolución (MTTR)**: < 48h promedio
 - **Frecuencia de hotfixes por release**: ≤ 1 por ciclo
 - **Tickets reabiertos**: < 10%
@@ -630,16 +630,16 @@ hotfix/critical-security # Parche urgente
 
 Estos indicadores se revisan al cierre de cada release para evaluar la estabilidad y mantenibilidad del ecosistema PromptSales.
 
-### 1.7 Interoperability
+## 1.7 Interoperability
 
-#### 1.7.1 Enfoque
+### 1.7.1 Enfoque
 **Cómo se conecta el sistema con otros (REST y MCP).**  
 - **Modos:** **APIs REST** + **MCP servers** (Model Context Protocol) entre subempresas y con terceros.
 - **Formato:** `application/json` (UTF-8).  
 - **Auth:** OAuth2/OIDC (JWT Bearer); para M2M, Client Credentials.  
 - **Seguridad:** TLS 1.3 en el borde; TLS 1.2+ hacia servicios internos.  
 
-#### 1.7.2 REST 
+### 1.7.2 REST 
 - **Base URLs por subempresa**
   - Content: `https://api.prompt-content.promptsales.com/v1`
   - Ads: `https://api.prompt-ads.promptsales.com/v1`
@@ -703,7 +703,7 @@ components:
 }
 ```
 
-#### 1.7.3 MCP
+### 1.7.3 MCP
 - **Uso:** orquestación IA/automatizaciones entre subempresas y con proveedores IA.
 - **Transporte:** TLS + OAuth2 (Client Credentials); scopes por herramienta.
 - **Contratos:** herramientas (**tools**) con esquemas JSON versionados en `contracts/mcp/`.
@@ -723,7 +723,7 @@ components:
 }
 ```
 
-#### 1.7.4 Estructura sugerida (contratos y conectores)
+### 1.7.4 Estructura sugerida (contratos y conectores)
 ```
 contracts/
 ├── rest/
@@ -742,7 +742,7 @@ webhooks/
     └── ads.campaign.created.json
 ```
 
-### 1.8 Compliance
+## 1.8 Compliance
 
 #### 1.8.1 Pagos y transparencia (terceros regulados)
 **Política:** Todo pago se procesa únicamente mediante **proveedores regulados**. No almacenamos datos de tarjetas (PAN/CVV). El cumplimiento **PCI-DSS** recae en el PSP; nosotros solo guardamos **tokens**.
@@ -753,7 +753,7 @@ webhooks/
 - Webhooks firmados (HMAC-SHA256) con rotación de secretos.
 - Conciliación contable periódica y trazabilidad por `payment_id`/`order_id`.
 
-#### 1.8.2 OWASP — objetivos de control
+### 1.8.2 OWASP — objetivos de control
 - **Web (Frontends):** **OWASP Top 10: 2021** (A01–A10) como baseline.
 - **Backend (APIs):** **OWASP API Security Top 10: 2023** (API1–API10) como baseline. Objetivo adicional: **OWASP ASVS 4.0.3, nivel 2** para endpoints críticos.
 
@@ -766,7 +766,7 @@ Low:      sin límite estricto, resolver por prioridad
 ```
 **Evidencia:** reportes SAST/DAST en CI/CD (artefactos de build), pruebas de seguridad en PR y gating antes de deploy.
 
-#### 1.8.3 GDPR — datos personales y sensibles
+### 1.8.3 GDPR — datos personales y sensibles
 - **Base legal y consentimiento:** registrar base legal por propósito; consentimiento explícito y **opt-in/opt-out** por canal (WhatsApp, email, SMS).
 - **Minimización y retención:** recolectar solo lo necesario; políticas de retención por tipo de dato y borrado programado.
 - **Derechos del interesado (DSR):** acceso, rectificación, portabilidad y supresión; SLA de respuesta **menor a 30 días**.
@@ -774,14 +774,14 @@ Low:      sin límite estricto, resolver por prioridad
 - **Acuerdos con terceros:** **DPA** firmado con PSPs, CRMs, Ads y hosting.
 - **Seguridad:** cifrado **TLS 1.3** en tránsito y **AES-256** en reposo; logging y auditoría centralizados (retención mínima 90 días).
 
-#### 1.8.4 Métricas de cumplimiento (SLOs)
+### 1.8.4 Métricas de cumplimiento (SLOs)
 - % releases con “0 critical / 0 high” (objetivo: **100%**).
 - Tiempo medio de cierre de findings **medium**: **menor a 15 días**.
 - Tiempo de respuesta a **DSR**: **<= 30 días** (P95).
 - % pagos procesados por PSP regulado: **100%**.
 - Cobertura de contratos **DPA** con terceros activos: **100%**.
 
-#### 1.8.5 Estructura sugerida (evidencias y contratos)
+### 1.8.5 Estructura sugerida (evidencias y contratos)
 ```
 compliance/
 ├── owasp/
@@ -796,12 +796,12 @@ compliance/
     └── webhook-signing.md   # esquema de firma y rotación de secretos
 ```
 
-### 1.9 Extensibility
+## 1.9 Extensibility
 
-#### 1.9.1 Objetivo
+### 1.9.1 Objetivo
 Arquitectura modular por **dominios** que permita **agregar nuevas subempresas** o **módulos (microservicios)** sin romper lo existente. Todos los componentes exponen **APIs REST** y/o **MCP servers** con contratos versionados.
 
-#### 1.9.2 Modos de extensión
+### 1.9.2 Modos de extensión
 - **Nuevo dominio local (en una subempresa):**
   1) Definir contrato **REST** (`/v1`) y opcional **MCP tool**.
   2) Desplegar como **microservicio** Knative o módulo interno.
@@ -815,7 +815,7 @@ Arquitectura modular por **dominios** que permita **agregar nuevas subempresas**
   2) Exponer **REST** y, si usa IA/automatización, **MCP server**.
   3) Registrar webhooks/eventos y publicar su OpenAPI/MCP en `contracts/`.
 
-#### 1.9.3 REST APIs
+### 1.9.3 REST APIs
 - **Formato:** JSON UTF-8; **Auth:** OAuth2/OIDC (Bearer JWT); **TLS:** 1.3 en el borde.
 - **Versionado:** prefijo `/v1`; cambios incompatibles → `/v2`.
 - **Idempotencia:** cabecera `Idempotency-Key` en POST sensibles.
@@ -851,7 +851,7 @@ components:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
 ```
 
-#### 1.9.4 MCP Servers
+### 1.9.4 MCP Servers
 - **Uso:** orquestación entre dominios y tareas IA.
 - **Auth:** OAuth2 M2M (client credentials) + TLS.
 - **Contrato:** tools con esquemas JSON versionados.
@@ -876,7 +876,7 @@ components:
 }
 ```
 
-#### 1.9.5 Estructura sugerida
+### 1.9.5 Estructura sugerida
 ```
 apps/
 ├── prompt-content/
@@ -906,7 +906,7 @@ webhooks/
     └── newdomain.event.json
 ```
 
-#### 1.9.6 Knative
+### 1.9.6 Knative
 ```yaml
 # k8s/knative/newdomain.yaml
 apiVersion: serving.knative.dev/v1
@@ -929,12 +929,12 @@ spec:
           value: "http://otel-collector.observability:4317"
 ```
 
-#### 1.9.7 Eventos y webhooks
+### 1.9.7 Eventos y webhooks
 - **Nomenclatura:** `<subempresa>.<dominio>.<evento>` (ej.: `ads.campaign.created`).
 - **Entrega:** al menos una vez, firma HMAC, 7 reintentos con backoff.
 - **Compatibilidad:** agregar campos no rompe; romper → nueva versión del esquema.
 
-#### 1.9.8 DoD (Definition of Done) para una extensión
+### 1.9.8 DoD (Definition of Done) para una extensión
 - OpenAPI/MCP publicados en `contracts/` y validados.
 - Tests: unitarios, de contrato (Pact u OpenAPI validators) e integración.
 - Dashboards + alertas (latencia, tasa de error, saturación).
@@ -942,150 +942,155 @@ spec:
 - Migraciones/esquemas versionados; **cero downtime** (blue/green o rolling).
 - Documentado en README con ejemplo de uso (curl y/o MCP call).
 
-## 2. Domain Driven Design
+# 2. Domain Driven Design
 
-### 2.1 Dominios globales y dominios por subempresa
+## 2.1 Dominios globales y dominios por subempresa
 
-#### 2.1.1 Dominios globales
+### 2.1.1 Dominios globales
 
-#### identidad
+### identidad
 - cubre: login, roles/permisos, organizaciones 
 - objetivo: acceso seguro y mínimo necesario
 
-#### suscripciones
+### suscripciones
 - cubre: planes/tiers por subempresa y bundles
 - objetivo: alta/baja, límites de uso y renovaciones
 
-#### pagos
+### pagos
 - cubre: cobros, facturación, prorrateo y reembolsos
 - objetivo: registrar transacciones y estados de pago
 
-#### almacenamiento
+### almacenamiento
 - cubre: guardar archivos y datos grandes en la nube
 - objetivo: acceso rápido, versionado básico y permisos
 
-#### integraciones
+### integraciones
 - cubre: conexiones con APIs externas 
 - objetivo: credenciales, reintentos, cuotas y errores
 
-#### analítica
+### analítica
 - cubre: métricas unificadas, dashboards, exportes
 - objetivo: funnels, ROI/ROAS y performance por cliente/campaña
 
-#### agenda
+### agenda
 - cubre: calendarios, recordatorios, reintentos y ventanas
 - objetivo: ejecutar tareas en el tiempo correcto
 
-#### aprobaciones
+### aprobaciones
 - cubre: revisión humana antes de publicar/ejecutar
 - objetivo: trazabilidad de quién aprobó qué y cuándo
 
-#### notificaciones
+### notificaciones
 - cubre: avisos internos (email/SMS/push) no-marketing
 - objetivo: informar estados, errores y pendientes
 
-#### IA
+### IA
 - cubre: uso de modelos (prompts, costos/tokens, guardrails)
 - objetivo: reutilizar y controlar servicios de IA
 
-#### cache
+### cache
 - cubre: resultados temporales (Redis), aceleración de consultas
 - objetivo: bajar llamadas a APIs y mejorar latencia
 
-#### auditoría y eventos
+### auditoría y eventos
 - cubre: logs, eventos de negocio y retención
 - objetivo: cumplimiento (GDPR/CCPA) y trazabilidad
 
-#### clientes y productos
+### clientes y productos
 - cubre: empresas, contactos clave, portafolio y presupuestos
 - objetivo: base común para contenido, ads y CRM
 
-#### redes sociales
+### redes sociales
 - cubre: páginas/perfiles, publicación, comentarios/DMs y moderación (FB/IG/TikTok/LinkedIn/X)
 - objetivo: unificar permisos, webhooks, rate limits y flujo de community management
 
-#### mensajería multicanal
+### mensajería multicanal
 - cubre: WhatsApp, SMS, Email, Webchat, Voz/IVR y Push (envío/recepción, plantillas, webhooks)
 - objetivo: unificar canales, proveedores (Twilio/Sinch/WhatsApp), opt-in/opt-out, rate limits y failover de canal
 
 
-####  2.1.2 Dominios por subempresa
+###  2.1.2 Dominios por subempresa
 
-#### PromptContent
+### PromptContent
 
-#### contenidos
+### contenidos
 - cubre: creación y edición de piezas
 - objetivo: producir materiales listos para aprobar/publicar
 
-#### plantillas
+### plantillas
 - cubre: guías de estilo, prompts base, formatos
 - objetivo: reutilizar estilos por marca/país
 
-#### almacenamiento
+### almacenamiento
 - cubre: almacenamiento de piezas y assets (texto, imagen, video), versiones y permisos
 - objetivo: acceso rápido y seguro; si se integra en 'contenidos', limitarlo a assets del área
 
 
-#### derechos
+### derechos
 - cubre: licencias, expiraciones y restricciones por canal/país
 - objetivo: evitar publicaciones fuera de licencia
 
 
-#### PromptAds
+### PromptAds
 
-#### campañas
+### campañas
 - cubre: objetivos, canales, calendario y KPIs
 - objetivo: planificar qué se lanza y cuándo
 
-#### anuncios 
+### anuncios 
 - cubre: creación/actualización de ad sets y anuncios
 - objetivo: publicar y sincronizar con las plataformas
 
-#### audiencias
+### audiencias
 - cubre: segmentación, lookalikes y sincronización
 - objetivo: dirigir anuncios al público correcto
 
 
-#### redes sociales
+### redes sociales
 - cubre: gestión de perfiles/canales (FB/IG/TikTok/LinkedIn/X), publicación, comentarios/DMs
 - objetivo: unificar permisos, webhooks y límites por canal para campañas de Ads
 
-#### analítica
+### analítica
 - cubre: métricas de campañas y anuncios (ROAS, CTR, CPC, conversiones)
 - objetivo: insights y paneles para optimizar inversión publicitaria
 
-#### políticas de plataforma
+### políticas de plataforma
 - cubre: validaciones, rechazos y apelaciones
 - objetivo: evitar bloqueos en Google/Meta/TikTok/etc.
 
 
-#### PromptCrm
+### PromptCrm
 
-#### leads
+### leads
 - cubre: captura multi-fuente, normalización y enrutamiento
 - objetivo: asignar rápido al mejor agente/equipo
 
-#### contactos y cuentas
+### contactos y cuentas
 - cubre: perfiles, empresas y roles
 - objetivo: historial de interacciones y contexto comercial
 
-#### conversaciones
+### conversaciones
 - cubre: chat/voz, plantillas, estados y transcripts
 - objetivo: automatizar con bots y handoff a humano
 
-#### oportunidades
+### oportunidades
 - cubre: etapas, montos, probabilidades y forecast
 - objetivo: priorizar y cerrar ventas
 
-#### tareas y SLA
+### tareas y SLA
 - cubre: pendientes, vencimientos y responsables
 - objetivo: cumplir tiempos de respuesta y seguimiento
 
-#### ventas
+### ventas
 - cubre: pedidos, cotizaciones, contratos y estados de cierre
 - objetivo: formalizar el cierre comercial y su trazabilidad
 
-#### transacciones
+### transacciones
 - cubre: pagos asociados a ventas, estados y reembolsos
 - objetivo: registrar movimiento financiero por oportunidad/pedido
 
+## 2.2 Interacción y Flujo de Datos
+
+Dentro de cada dominio se tienen las funcionalidades separadas por controllers. Para funcionalidades cross-domain los controllers NO pueden llamar directamente a controllers de otros dominios, para esto deben usar los contratos como se muestra en el siguiente diagrama de ejemplo.
+
+![Ejemplo de llamadas cross-domain](assets/DDD-DataFlow.svg)
