@@ -1173,8 +1173,9 @@ spec:
 
 3. src/domains/\<newdomain>/acl/ (si consume otros)
 
-4. Rutas en src/apps/\<app>/server.js
+4. Rutas en src/apps/\<subempresaquecorresponde>/server.js 
 
+[src/Apps/prompt-ads/server.js](src/apps/prompt-ads/server.js)
 ``` javascript
 // server.js (ejemplo)
 import express from "express";
@@ -1186,11 +1187,11 @@ const app = express();
 app.use(express.json());
 
 const renewal = SubscriptionRenewalController({ acl: buildSubscriptionACL() });
-app.post("/v1/subscriptions/renew", requireAuth, renewal.renew);
+app.post("/subscriptions/renew", requireAuth, renewal.renew);
 
 export default app;
 ```
 
 5. Gateways: usa gateways/rest/* o gateways/mcp/* para crear los clients HTTP/MCP de cada contract.
 
-6. Shared: registra Idempotency-Key (shared/http/idempotency.js), logs (shared/observability/logger.js) y trazas (shared/observability/tracing.js).
+6. Shared: registra Idempotency-Key [src/shared/http/idempotency.js](src/shared/http/idempotency.js), logs [src/shared/observability/logger.js](src/shared/observability/logger.js) y trazas [src/shared/observability/tracing.js](src/shared/observability/tracing.js).
