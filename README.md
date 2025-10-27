@@ -1133,11 +1133,56 @@ spec:
 
 ## 2.2 Interacción y Flujo de Datos
 
-Dentro de cada dominio se tienen las funcionalidades separadas por controllers. Para funcionalidades cross-domain los controllers NO pueden llamar directamente a controllers de otros dominios, para esto deben usar el anti corruption layer, quien se encarga de llamar al contrato del dominio. Todos los tests deben hacerse al anti corruption layer.
+### Reglas clave
+
+1. Intra-dominio: los controllers solo orquestan casos de uso de su dominio.
+
+2. Cross-dominio: un controller no llama a controllers de otros dominios. Debe usar su ACL (Anti-Corruption Layer), y este ACL invoca el Contract del otro dominio.
+
+3. Contratos: exponen interfaces estables (REST/MCP) y modelos propios del dominio destino. El ACL hace el mapping a los modelos del dominio origen.
+
+4. Tests: las pruebas cross-dominio se hacen sobre el ACL, mockeando los Contracts. No se prueba invocando controllers remotos.
 
 ![Ejemplo de llamadas cross-domain](assets/DDD-DataFlow.svg)
 
-
 ## 2.3 Estructura base de dominios
 
-[src/domains/identity/](src/domains/identity/)
+### Qué contiene cada dominio
+
+1. controllers/: casos de uso expuestos al app server (rutas HTTP).
+
+2. contracts/: interfaces del dominio (REST/MCP) para ser consumidas por otros dominios.
+
+3. acl/: façade para consumir contratos de otros dominios sin filtrar modelos externos al interno.
+
+### Carpetas
+
+[src/domains/](src/domains)
+
+1. src/domains/<newdomain>/controllers/
+
+2. src/domains/<newdomain>/contracts/
+
+3. src/domains/<newdomain>/acl/ (si consume otros)
+
+4. Rutas en src/apps/<app>/server.js
+
+``` javascript
+// server.js (ejemplo)
+import express from "express";
+import { requireAuth } from "../../shared/auth/middleware.js";
+import { SubscriptionRenewalController } from "../../domains/subscriptions/controllers/SubscriptionRenewalController.js";
+import { buildSubscriptionACL } from "./wiring/subscriptions.js"; // cableado de clients/mapper
+
+const app = express();
+app.use(express.json());
+
+const renewal = SubscriptionRenewalController({ acl: buildSubscriptionACL() });
+app.post("/v1/subscriptions/renew", requireAuth, renewal.renew);
+
+export default app;
+```
+
+5. Gateways: usa gateways/rest/* o gateways/mcp/* para crear los clients HTTP/MCP de cada contract.
+
+6. Shared: registra Idempotency-Key (shared/http/idempotency.js), logs (shared/observability/logger.js) y trazas (shared/observability/tracing.js).
