@@ -202,7 +202,7 @@ El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámic
 
 **Archivo de configuración Kubernetes:**
 
-/k8s/knative/kubernetes-config.yaml
+![kubernetes-config.yaml](/k8s/knative/kubernetes-config.yaml)
 
 ## 1.3 Confiabilidad
 
@@ -235,39 +235,8 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 
 * **99.9%** de disponibilidad anual
 
-* **Downtime (min)** ≈ **minutos del período ÷ 1000**
-
 
 **Lo cual se tiene que:**
-
-* **Año**
-
-  * Minutos en 1 año: 365 × 24 × 60 = **525,600 min**
-  * 0.1% de 525,600 = **525.6 min**
-  * 525.6 min = **8 h 45 min 36 s**
-
-* **Mes**
-
-  * Minutos en 1 mes promedio: 525,600 ÷ 12 = **43,800 min**
-  * 0.1% de 43,800 = **43.8 min**
-  * 43.8 min = **43 min 48 s**
-  
-* **Semana**
-
-  * Minutos en 1 semana: 7 × 24 × 60 = **10,080 min**
-  * 0.1% de 10,080 = **10.08 min**
-  * 10.08 min = **10 min 4.8 s** (≈ **10 min 5 s**)
-
-* **Día**
-
-  * Minutos en 1 día: 24 × 60 = **1,440 min**
-  * 0.1% de 1,440 = **1.44 min**
-  * 1.44 min = **1 min 26.4 s** (≈ **1 min 26 s**)
-
-**Cálculo de disponibilidad (demostrado):**
-
-* Fórmula:
-  * **Downtime = (1 − Availability) × Tiempo total**
 
 * Para 99.9% anual:
   * Downtime anual = (1 − 0.999) × 525,600 min = 0.001 × 525,600 min = 525.6 min = 8 h 45 min 36 s
@@ -276,6 +245,52 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 
 * **Knative autoscaling** para mantener **múltiples réplicas** y **failover** entre pods activos.
 * Base de datos con **RDS for SQL Server ** (replicación síncrona y **failover automático**).
+
+| Servicio Crítico | Tiempo estimado de recuperación (MTTR) | Fuente / Referencia |
+|------------------|----------------------------------------|---------------------|
+| **Amazon RDS SQL Server (Multi-AZ)** | 60–120 segundos (1–2 min) | [AWS Docs – Failover Times](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html) |
+| **Amazon ElastiCache for Redis (Multi-AZ con Failover)** | 30–45 segundos a 2 min | [AWS Blog – Configuring ElastiCache for Redis for Higher Availability](https://aws.amazon.com/blogs/database/configuring-amazon-elasticache-for-redis-for-higher-availability/) |
+| **MongoDB Replica Set / Atlas Cluster** | 30–40 segundos | [Aerospike vs MongoDB Whitepaper (2023)](https://aerospike.com/files/white-papers/aerospike-vs-mongoDB-whitepaper.pdf) |
+| **Knative / EKS Pods (autoscaling y failover)** | 2–5 min (rolling update o re-deployment) | [Kubernetes Docs – Pod Disruption Budgets & Restart Behavior](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) |
+| **API Gateway / Load Balancer (AWS ALB)** | < 1 min para re-enrutamiento | [AWS ALB Failover Behavior](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html) |
+| **Sistema Serverless (FaaS Lambda + Knative)** | < 30 seg a 1 min (en reinicio o scaling) | [Knative Docs – Autoscaling and Recovery](https://knative.dev/docs/serving/autoscaling/) |
+
+**Cálculo del Tiempo Promedio de Recuperación (MTTR)**
+
+| Servicio | MTTR (min) | Peso relativo | Aporte ponderado |
+|-----------|-------------|----------------|------------------|
+| RDS SQL Server | 1.5 | 0.30 | 0.45 |
+| Redis | 1.5 | 0.20 | 0.30 |
+| MongoDB | 0.7 | 0.15 | 0.105 |
+| Knative/EKS | 3.5 | 0.20 | 0.70 |
+| API Gateway / ALB | 1 | 0.10 | 0.10 |
+| Serverless | 0.7 | 0.05 | 0.035 |
+| **Total MTTR promedio estimado ≈ 1.7 min (≈ 102 s)** |  |  | **≈ 1.69 min** |
+
+**Presupuesto de Disponibilidad (99.9 %)**
+
+| Periodo | Downtime máximo permitido |
+|----------|---------------------------|
+| **Año** | 525.6 min (≈ 8 h 45 m) |
+| **Mes** | 43.8 min |
+| **Semana** | 10.08 min |
+| **Día** | 1.44 min |
+
+**Cálculo del Número de Fallas Permitidas**
+
+Fallas = Downtime permitido \ MTTR promedio
+
+525.6/1.7 = 309.176
+
+| Periodo | Downtime máx | MTTR promedio (1.7 min) | N° fallas máx ≈ |
+|----------|---------------|--------------------------|------------------|
+| **Año** | 525.6 min | 1.7 min | **≈ 309 fallas/año** |
+| **Mes** | 43.8 min | 1.7 min | **≈ 25 fallas/mes** |
+| **Semana** | 10.08 min | 1.7 min | **≈ 6 fallas/semana** |
+| **Día** | 1.44 min | 1.7 min | **≈ 0.8 fallas/día** |
+
+
+Tomando en cuenta un tiempo promedio de recuperación de 1.7 minutos, se cumplirá con los parámetros establecidos mientras se tengan menos de 300 fallos al año.
 
 ## 1.5 Seguridad
 
