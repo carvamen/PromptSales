@@ -165,27 +165,35 @@ https://aws.amazon.com/blogs/database/benchmarking-amazon-aurora-limitless-with-
 ### Benchmark Redis
 https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/
 
-Tiempo máximo para operaciones de cache 500 ms
+* Se usaron 50 clientes simultáneos y 5 millones de solicitudes
+* Tiempo máximo para operaciones de cache 500 ms
+
+### Servidores
+* Objetivo: 100000 transacciones / 60 segundos = 16.667 transacciones por segundo
+* Dividimos nuestro objetivo entre el TPS según el servidor
+* Suponiendo que tenemos los equivalentes a estos servidores en AWS, asumimos un número de transacciones por segundo (TPS):
+
+| Servidor      | CPU       | Memoria | TPS asumido | Instancias requeridas |
+|---------------|----------|---------|--------------| ------------|
+| m6i.2xlarge | 8 cores  | 32 GB   | 1000          | 17 |
+| m6i.4xlarge | 16 cores | 64 GB   | 2000          | 9 |
+
+* También se puede tener una combinación, por ejemplo 5 servidores m6i.4xlarge y 7 m6i.2xlarge para cubrir el objetivo.
 
 ## 1.2 Escalabilidad
-Abarca la capacidad del sistema para aumentar rendimiento mediante escalado horizontal y vertical.
-
 El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámicamente los servicios según demanda.
-**Objetivo derivado del benchmark de Performance (Aurora Limitless):** **~2,042–2,485 transacciones por segundo** con **~40–49 ms** de latencia media en estado estable.
 
 **Kubernetes Cluster:**
 
-* 8 nodos base (EKS)
-* Escalado automático hasta 40 nodos (Cluster Autoscaler)
-* CPU máxima por pod = 2 vCPUs
-* RAM máxima por pod = 2 GB
-* **Meta de capacidad global:** igualar/superar **~2,485 transacciones/segundo** manteniendo **~40–49 ms** de latencia media (referencia del benchmark).
+* Cluster con mínimo 9 nodos base m6i.4xlarge o el equivalente.
+* Escalado automático hasta 90 nodos m6i.4xlarge.
+* **Meta de capacidad global:** igualar/superar **166,667 transacciones/segundo** (10x de la capacidad base) manteniendo **~40–49 ms** de latencia media (referencia del benchmark).
 
 **Knative Autoscaling Policy:**
 
 * Escalado basado en concurrency per pod
 * Promedio target = 100 req/pod
-* **MaxScale por servicio (estimado):** se ajustará para alcanzar el **objetivo de ~2,485 TPS** una vez medido el **RPS por pod** en staging (se derivará `maxScale = ceil(TPS_obj / RPS_por_pod)`).
+* **MaxScale por servicio (estimado):** se ajustará para alcanzar el **objetivo máximo de 166,667 TPS** una vez medido el **RPS por pod** en staging (se derivará `maxScale = ceil(TPS_obj / RPS_por_pod)`).
 
 **Load Balancing:**
 
