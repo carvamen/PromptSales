@@ -136,7 +136,7 @@ PromptSales - Ecosistema de Marketing con IA
 
 # 1. Métricas no funcionales
 
-Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
+Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server** y no relacionales sobre **MongoDB**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
 
 
 ## Index
@@ -226,7 +226,7 @@ Nuestro sistema se basa en una arquitectura **Serverless** y **Kubernetes (Knati
 ### Recuperación automatizada
 
 * Se va a usar **Knative/Kubernetes** para **autoescalado horizontal** (HPA/Autoscaler), **múltiples réplicas**, **reinicios automáticos** y **PodDisruptionBudget** para continuar atendiendo durante mantenimientos.
-* Se va a usar **RDS Multi-AZ** de **AWS** para **failover automático** de la base de datos y **copias de seguridad** con **PITR** (Point-in-Time Recovery).
+* Se va a usar **RDS Multi-AZ** de **AWS** para **failover automático** de la base de datos y **copias de seguridad** con **PITR** (Point-in-Time Recovery) para restaurar el sistema a cualquier punto en los últimos 7 días con menos de 10 minutos de data loss.
 
 ## 1.4 Disponibilidad
 Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el tiempo de inactividad.
@@ -282,13 +282,14 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 ### 1.5.1 Autenticación y Autorización
 **Implementación:** OpenID Connect (OIDC) utilizando Auth0 como proveedor de identidad con validación stateless de JWT
 
-**Arquitectura sugerida:**
+**Arquitectura usada:**
 - Auth0 maneja la autenticación de usuarios y emite tokens JWT
 - Express.js con librería `openid-client` para integración OIDC
 - Validación stateless de tokens para escalado de Knative
 - Flujo estándar Authorization Code con autenticación de cliente
 
 **Flujo de autenticación:**
+![oidc-setup.js](/src/shared/auth/oidc-setup.js)
 
 ```javascript
 // oidc-setup.js - OIDC Client Configuration
@@ -309,6 +310,7 @@ app.get('/auth/login', (req, res) => {
 ```
 
 **Middleware de Validación JWT**
+![middleware.js](/src/shared/auth/middleware.js)
 ```javascript
 // middleware.js - Validación Stateless de JWT
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -352,6 +354,7 @@ export async function requireAuth(req, res, next) {
 ```
 
 **Ejemplo de Implementación del Middleware:**
+![server.js](/src/apps/prompt-content/server.js)
 ```javascript
 // apps/prompt-content/server.js
 import { requireAuth } from '../../shared/auth/middleware.js';
@@ -413,6 +416,7 @@ k8s/
 ```
 
 **Configuración del Service Account para IRSA:**
+![service-account.yaml](/k8s/external-secrets/service-account.yaml)
 ```yaml
 # k8s/external-secrets/service-account.yaml
 apiVersion: v1
@@ -425,6 +429,7 @@ metadata:
 ```
 
 **Configuración de AWS SecretStore con IRSA:**
+![secret-store.yaml](/k8s/external-secrets/secret-store.yaml)
 ```yaml
 # k8s/external-secrets/secret-store.yaml
 apiVersion: external-secrets.io/v1beta1
@@ -443,6 +448,7 @@ spec:
 ```
 
 **External Secret para Auth0:**
+![external-secret.yaml](/k8s/external-secrets/external-secret.yaml)
 ```yaml
 # k8s/external-secrets/external-secret.yaml
 apiVersion: external-secrets.io/v1beta1
@@ -467,6 +473,7 @@ spec:
 ```
 
 **Integración del Servicio Knative:**
+![prompt-content.yaml](/k8s/knative/prompt-content.yaml)
 ```yaml
 # k8s/knative/prompt-content.yaml
 apiVersion: serving.knative.dev/v1
@@ -516,6 +523,7 @@ Usaremos: SQL Server, MongoDB y Redis.
   - En tránsito: TLS (TransitEncryptionEnabled: true).
 
 **Ingress ALB (TLS 1.3)**
+![alb-tls13.yaml](/k8s/ingress/alb-tls13.yaml)
 ```yaml
 # k8s/ingress/alb-tls13.yaml
 apiVersion: networking.k8s.io/v1
@@ -543,7 +551,7 @@ spec:
 ```
 
 **Conexión SQL Server**
-### k8s/sqlserver/sqlserver-connection.json
+![sqlserver-connection.json](/k8s/sqlserver/sqlserver-connection.json)
 ```JSON
 {
   "driver": "msnodesqlv8 or tedious",
@@ -560,8 +568,9 @@ spec:
 }
 ```
 
-### k8s/mongodb/mongo-connection.json
+
 **Conexión MongoDB**
+![mongo-connection.json](/k8s/mongodb/mongo-connection.json)
 ```JSON
 {
   "uri": "mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/promptsales?retryWrites=true&w=majority&tls=true",
@@ -572,6 +581,7 @@ spec:
 ```
 
 **ElastiCache Redis**
+![elasticache-redis.yaml](/k8s/redis/elasticache-redis.yaml)
 ```yaml
 # k8s/redis/elasticache-redis.yaml 
 AWSTemplateFormatVersion: '2010-09-09'
@@ -594,8 +604,9 @@ Resources:
 ```
 
 **EKS — etcd Encryption**
+![etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
 ```yaml
-# k8s/eks/etcd-encryption.yaml 
+# k8s/eks/etcd-encryption.yaml
 apiVersion: apiserver.config.k8s.io/v1
 kind: EncryptionConfiguration
 resources:
@@ -609,6 +620,7 @@ resources:
 ```
 
 **TLS hacia Redis**
+![etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
 ```javascript
 // nodejs/redis-tls.js
 
@@ -1111,3 +1123,8 @@ spec:
 Dentro de cada dominio se tienen las funcionalidades separadas por controllers. Para funcionalidades cross-domain los controllers NO pueden llamar directamente a controllers de otros dominios, para esto deben usar el anti corruption layer, quien se encarga de llamar al contrato del dominio. Todos los tests deben hacerse al anti corruption layer.
 
 ![Ejemplo de llamadas cross-domain](assets/DDD-DataFlow.svg)
+
+
+## 2.3 Estructura base de dominios
+
+[src/domains/identity/](src/domains/identity/)

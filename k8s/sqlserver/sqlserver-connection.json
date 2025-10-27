@@ -1,0 +1,13 @@
+{
+  "driver": "msnodesqlv8 or tedious",
+  "server": "REEMPLAZAR-SQLSERVER-ENDPOINT",
+  "database": "promptsales",
+  "authentication": {
+    "type": "default"
+  },
+  "options": {
+    "encrypt": true,
+    "trustServerCertificate": false,
+    "requestTimeout": 30000
+  }
+}

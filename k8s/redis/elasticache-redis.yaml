@@ -1,0 +1,18 @@
+# k8s/redis/elasticache-redis.yaml 
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  RedisReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupId: promptsales-redis
+      ReplicationGroupDescription: Redis with in-transit and at-rest encryption
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheNodeType: cache.t3.micro
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 1
+      TransitEncryptionEnabled: true          # TLS en tránsito
+      AtRestEncryptionEnabled: true           # AES-256 en reposo (KMS)
+      KmsKeyId: arn:aws:kms:us-east-1:111122223333:key/REEMPLAZAR-CMK
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true

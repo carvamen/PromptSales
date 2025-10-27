@@ -1,0 +1,6 @@
+{
+  "uri": "mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/promptsales?retryWrites=true&w=majority&tls=true",
+  "options": {
+    "serverSelectionTimeoutMS": 30000
+  }
+}
