@@ -1194,3 +1194,6 @@ export default app;
 5. Gateways: usa gateways/rest/* o gateways/mcp/* para crear los clients HTTP/MCP de cada contract.
 
 6. Shared: registra Idempotency-Key (shared/http/idempotency.js), logs (shared/observability/logger.js) y trazas (shared/observability/tracing.js).
+
+7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
+![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
