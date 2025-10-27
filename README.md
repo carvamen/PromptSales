@@ -124,13 +124,16 @@ PromptSales - Ecosistema de Marketing con IA
     │   ├── clients-products/
     │   ├── social/
     │   └── messaging-multicanal/
-    └── apps/
-        ├── prompt-content/
-        │   └── server.js
-        ├── prompt-ads/
-        │   └── server.js
-        └── prompt-crm/
-            └── server.js
+    ├── apps/
+    │   ├── prompt-content/
+    │   │   └── server.js
+    │   ├── prompt-ads/
+    │   │   └── server.js
+    │   └── prompt-crm/
+    │       └── server.js
+    └── jest/
+        └── SubscriptionTests.js
+
 
 ```
 
