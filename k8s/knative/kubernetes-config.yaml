@@ -1,0 +1,86 @@
+# k8s/knative/kubernetes-config.yaml
+# Namespace "apps" para servicios de negocio
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+---
+# Defaults de CPU/Mem para pods (evita oversubscription y asegura QoS)
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: apps
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "1500m"
+      memory: "1Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "512Mi"
+---
+# Cuotas básicas del namespace (ajusta a tu cuenta)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: apps-quota
+  namespace: apps
+spec:
+  hard:
+    pods: "500"
+    requests.cpu: "200"
+    requests.memory: "200Gi"
+    limits.cpu: "400"
+    limits.memory: "400Gi"
+---
+# Knative autoscaler: objetivo por POD y ventanas de estabilidad/pánico
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: knative-serving
+data:
+  enable-scale-to-zero: "true"
+  container-concurrency-target-percentage: "70"   # Headroom para picos
+  container-concurrency-target-default: "100"     # == 100 req/pod (lo que definiste)
+  stable-window: "60s"
+  panic-window-percentage: "10.0"
+  max-scale-up-rate: "10.0"
+  max-scale-down-rate: "2.0"
+  requests-per-second-target-default: "0"         # 0 => usa métrica de concurrency
+---
+# Knative network: usa Kourier y fuerza HTTPS (redirige HTTP->HTTPS)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+data:
+  ingress-class: "kourier.ingress.networking.knative.dev"
+  http-protocol: "Redirected"
+---
+# Dominio (ajusta si ya tienes otro). Vacío => wildcard subdominios.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+data:
+  promptsales.com: ""
+  promptsales.dev: ""
+---
+# Defaults a nivel de revisión (timeouts y recursos por defecto)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-defaults
+  namespace: knative-serving
+data:
+  revision-timeout-seconds: "120"
+  revision-cpu-request: "500m"
+  revision-memory-request: "512Mi"
+  revision-cpu-limit: "1500m"
+  revision-memory-limit: "1Gi"
+  container-name-template: "{{.Name}}-c"
