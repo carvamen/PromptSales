@@ -1167,13 +1167,13 @@ spec:
 
 [src/domains/](src/domains)
 
-1. src/domains/<newdomain>/controllers/
+1. src/domains/\<newdomain>/controllers/
 
-2. src/domains/<newdomain>/contracts/
+2. src/domains/\<newdomain>/contracts/
 
-3. src/domains/<newdomain>/acl/ (si consume otros)
+3. src/domains/\<newdomain>/acl/ (si consume otros)
 
-4. Rutas en src/apps/<app>/server.js
+4. Rutas en src/apps/\<app>/server.js
 
 ``` javascript
 // server.js (ejemplo)
