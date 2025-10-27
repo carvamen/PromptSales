@@ -228,6 +228,12 @@ Nuestro sistema se basa en una arquitectura **Serverless** y **Kubernetes (Knati
 * Se va a usar **Knative/Kubernetes** para **autoescalado horizontal** (HPA/Autoscaler), **múltiples réplicas**, **reinicios automáticos** y **PodDisruptionBudget** para continuar atendiendo durante mantenimientos.
 * Se va a usar **RDS Multi-AZ** de **AWS** para **failover automático** de la base de datos y **copias de seguridad** con **PITR** (Point-in-Time Recovery) para restaurar el sistema a cualquier punto en los últimos 7 días con menos de 10 minutos de data loss.
 
+### Tasa de errores permitida
+La tasa de fallas permitida será del 0.1%, para calcularla usamos la siguiente formula:
+* Tasa de fallas permitida = Número máximo de transacciones fallidas/Número total de transacciones * 100
+
+Si el porcentaje de transacciones fallidas supera el límite permitido se notifica al equipo por SMS y correo electrónico para investigación inmediata.
+
 ## 1.4 Disponibilidad
 Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el tiempo de inactividad.
 
