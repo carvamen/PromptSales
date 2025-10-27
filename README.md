@@ -152,28 +152,20 @@ Para todas las métricas no funcionales y la estructura general del ecosistema P
 
 ## 1.1 Rendimiento
 
-La métrica se evalúa considerando el **tiempo de respuesta promedio** y las **transacciones por segundo** en condiciones simuladas equivalentes a un entorno de producción.
-
-**Enlace al benchmark base:** https://aws.amazon.com/blogs/database/benchmarking-amazon-aurora-limitless-with-pgbench/.
-
-**En el benchmark se utilizó lo siguiente:**
-
-* **Topología de Aurora Limitless:** **2 routers** y **4 shards** (según el artículo). El sistema escala mediante **Aurora Capacity Units (ACU)**, una métrica que agrupa cómputo, memoria y red. Con el aumento de ACUs, el clúster alcanzó un techo cercano a **~2,500 transacciones por segundo** en estado estable.
-* **Carga simulada:** se empleó un **generador de carga tipo OLTP** (herramienta `pgbench`) durante **1 hora** (parámetros: tiempo de prueba de 3600 segundos, **100 clientes / 100 hilos**, factor de escala de datos de 10000). La tasa de transacciones creció desde **~320** al inicio hasta **>2,400 transacciones por segundo** al final, conforme el sistema escaló.
-* **Orquestación de conexiones:** Para aprovechar **todos** los routers, en el benchmark se recomienda ejecutar un proceso del generador de carga por router (cada uno hacia su endpoint).
-
-### Resultados de benchmark
+### Benchmark Aurora:
+https://aws.amazon.com/blogs/database/benchmarking-amazon-aurora-limitless-with-pgbench/.
 
 * **Promedio en 1 hora:** **~2,042 transacciones por segundo** con **~49 milisegundos** de latencia media; **0 fallos** reportados.
 * **Al final de la hora (estado estable):** **~2,485 transacciones por segundo** con **~40 milisegundos** de latencia.
 
-### Cálculo de referencia
+#### Cálculo de referencia
 
 * **Unidad base (observada):** **~2,042 transacciones por segundo** (**122,520 transacciones por minuto**).
 
-* **Balanceando routers**:
+### Benchmark Redis
+https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/
 
-  * **Capacidad ≈ 2,042 × 2 = ~4,084 transacciones por segundo** (≈ **245,000 transacciones por minuto**).
+Tiempo máximo para operaciones de cache 500 ms
 
 ## 1.2 Escalabilidad
 Abarca la capacidad del sistema para aumentar rendimiento mediante escalado horizontal y vertical.
