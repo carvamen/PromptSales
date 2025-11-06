@@ -1,0 +1,20 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: jwt-auth
+config:
+  key_claim_name: "iss"
+  secret_is_base64: false
+  run_on_preflight: true
+plugin: jwt
+
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: secure-cors
+config:
+  origins: ["https://app.promptsales.com", "https://admin.promptsales.com"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  headers: ["Accept", "Authorization", "Content-Type"]
+  credentials: true
+plugin: cors

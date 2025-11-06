@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: api-gateway
+data:
+  kong.yaml: |
+    _format_version: "2.1"
+    
+    services:
+    - name: prompt-content-service
+      url: http://prompt-content.[NAMESPACE].svc.cluster.local:[PORT]
+      routes:
+      - name: content-routes
+        paths: ["/api/content", "/api/content/"]
+      plugins:
+      - name: jwt-auth
+      - name: secure-cors
+      
+    - name: prompt-ads-service
+      url: http://prompt-ads.[NAMESPACE].svc.cluster.local:[PORT]  
+      routes:
+      - name: ads-routes
+        paths: ["/api/ads", "/api/ads/"]
+      plugins:
+      - name: jwt-auth
+      - name: secure-cors
+      
+    - name: prompt-crm-service
+      url: http://prompt-crm.[NAMESPACE].svc.cluster.local:[PORT]
+      routes:
+      - name: crm-routes
+        paths: ["/api/crm", "/api/crm/"]
+      plugins:
+      - name: jwt-auth
+      - name: secure-cors
