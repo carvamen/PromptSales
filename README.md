@@ -40,6 +40,10 @@ PromptSales - Ecosistema de Marketing con IA
 │   │   ├── prompt-content.yaml
 │   │   ├── prompt-ads.yaml
 │   │   └── prompt-crm.yaml
+│   ├── api-gateway/           # ← NUEVO
+│   │   ├── kong-deployment.yaml
+│   │   ├── kong-routes.yaml
+│   │   └── kong-plugins.yaml
 │   ├── ingress/
 │   │   └── alb-tls13.yaml
 │   ├── external-secrets/
@@ -143,7 +147,7 @@ Para todas las métricas no funcionales y la estructura general del ecosistema P
 
 
 ## Index
-- [Performance](#performance)
+- [Performance](#rendimiento)
 - [Scalability](#scalability)  
 - [Reliability](#reliability)
 - [Availability](#availability)
@@ -1063,84 +1067,57 @@ spec:
 - Migraciones/versionado de esquema sin downtime (rolling/blue/green).
 - README con ejemplo `curl` y/o invocación MCP documentados.
 
-
 # 2. Domain Driven Design
 
-## 2.1 Dominios globales y dominios por subempresa
+## 2.1 Dominios Globales y por Subempresa
 
-### 2.1.1 Dominios globales
+### 2.1.1 Dominios Globales
 
-#### identidad
+**Dominios transversales que soportan todo el ecosistema:**
 
-#### suscripciones
+- **Identidad** 
+- **Suscripciones** 
+- **Pagos** 
+- **Almacenamiento**
+- **Integraciones** 
+- **Analítica**
+- **Agenda** 
+- **Aprobaciones** 
+- **Notificaciones** 
+- **IA** 
+- **Cache** 
+- **Auditoría y Eventos** 
+- **Clientes y Productos** 
+- **Redes Sociales** 
+- **Mensajería Multicanal** 
 
-#### pagos
+### 2.1.2 Dominios por Subempresa
 
-#### almacenamiento
+#### PromptContent
+**Dominios especializados en generación y gestión de contenido:**
+- **Contenidos**
+- **Plantillas** 
+- **Almacenamiento** 
+- **Derechos** 
 
-#### integraciones
+#### PromptAds
+**Dominios especializados en publicidad y campañas:**
+- **Campañas**
+- **Anuncios** 
+- **Audiencias** 
+- **Redes Sociales** 
+- **Analítica** 
+- **Políticas de Plataforma** 
 
-#### analítica
-
-#### agenda
-
-#### aprobaciones
-
-#### notificaciones
-
-#### IA
-
-#### cache
-
-#### auditoría y eventos
-
-#### clientes y productos
-
-#### redes sociales
-
-#### mensajería multicanal
-
-###  2.1.2 Dominios por subempresa
-
-### PromptContent
-
-#### contenidos
-
-#### plantillas
-
-#### almacenamiento
-
-#### derechos
-
-### PromptAds
-
-#### campañas
-
-#### anuncios 
-
-#### audiencias
-
-#### redes sociales
-
-#### analítica
-
-#### políticas de plataforma
-
-### PromptCrm
-
-#### leads
-
-#### contactos y cuentas
-
-#### conversaciones
-
-#### oportunidades
-
-#### tareas y SLA
-
-#### ventas
-
-#### transacciones
+#### PromptCRM
+**Dominios especializados en gestión de relaciones con clientes:**
+- **Leads**
+- **Contactos y Cuentas** 
+- **Conversaciones** 
+- **Oportunidades** 
+- **Tareas y SLA** 
+- **Ventas** 
+- **Transacciones**
 
 ## 2.2 Interacción y Flujo de Datos
 
@@ -1201,3 +1178,40 @@ export default app;
 
 7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
 ![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
+
+
+## API Gateway & Routing
+
+Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gateway/`
+
+**Routing Map:**
+- `/api/content/*` → PromptContent Microservice
+- `/api/ads/*` → PromptAds Microservice  
+- `/api/crm/*` → PromptCRM Microservice
+
+**Features:**
+- Autenticación JWT centralizada
+- CORS management  
+- Logging y métricas
+
+### Variables a definir durante implementación:
+
+#### Service URLs
+- `[NAMESPACE]`: Namespace de Kubernetes donde se despliegan los microservicios
+- `[PORT]`: Puerto interno de cada microservicio
+
+#### Paths Routing  
+- Rutas base a confirmar con equipo de desarrollo
+- Considerar versionado (/v1/, /v2/) si aplica
+
+### Políticas de Seguridad del API Gateway 
+
+#### Capa 1: API Gateway (Kong)
+- **JWT Validation:** Verificación básica de tokens Auth0
+- **CORS Policy:** Restricción de orígenes frontend
+- **Propósito:** Filtro general antes de llegar a la aplicación
+
+#### Capa 2: Application Layer (shared/auth/)
+- **Autorización:** Validación de roles y permisos específicos
+- **Lógica negocio:** Reglas de acceso por dominio
+- **Auditoría:** Logging detallado por operación
