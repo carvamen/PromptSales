@@ -1215,3 +1215,16 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 - **Autorización:** Validación de roles y permisos específicos
 - **Lógica negocio:** Reglas de acceso por dominio
 - **Auditoría:** Logging detallado por operación
+
+## Cloud Provider
+
+### Decisión
+**AWS (Amazon Web Services)** como proveedor cloud principal.
+
+### Servicios AWS Utilizados
+- **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
+- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
+- **ElastiCache** - Redis para caching distribuido
+- **Secrets Manager** - Gestión centralizada de secrets
+- **ALB** (Application Load Balancer) - Balanceo de carga
+- **SNS** - Mensajería y eventos asíncronos
