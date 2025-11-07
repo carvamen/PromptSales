@@ -1,0 +1,21 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prompt-ads
+  annotations:
+    autoscaling.knative.dev/metric: "concurrency"
+    autoscaling.knative.dev/target: "100"    # reqs por pod
+    autoscaling.knative.dev/minScale: "3"    # base por servicio
+    autoscaling.knative.dev/maxScale: "60"   # tope por servicio
+spec:
+  template:
+    spec:
+      containers:
+        - image: 111122223333.dkr.ecr.us-east-1.amazonaws.com/prompt-ads:latest
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
