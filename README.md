@@ -1230,3 +1230,7 @@ export default app;
 
 7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
 ![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
+
+# 3. Diagrama de arquitectura
+
+![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
