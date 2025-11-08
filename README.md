@@ -248,6 +248,35 @@ Se refiere a asegurar la **disponibilidad continua** del sistema, minimizando el
 
 * **99.9%** de disponibilidad anual
 
+* Supuestos y fórmula del downtime
+
+* Ventana de medición: 24/7 (minutos totales del periodo: año, mes, semana o día).
+
+* Fórmula general:
+
+      Downtime (min) = (1 − Disponibilidad) × minutos_del_periodoPara 99.9% ⇒ D = 0.001 × minutos_del_periodo.
+
+* Ejemplos de periodo:
+
+      Año: 365×24×60 = 525 600 → D = 525.6 min (= 8 h 45 min 36 s).
+
+* Mes:
+
+      30 días → 43.2 min • 31 días → 44.64 min • 28 días → 40.32 min
+(Si se prefiere "mes promedio" = 365/12 → 43.8 min, que es el que usamos en las tablas.)
+
+* Semana: 
+
+      7×24×60 = 10 080 → 10.08 min.
+
+* Día: 
+        
+      24×60 = 1 440 → 1.44 min.
+
+* Relación con fallas:
+      
+      N.º de fallas permisibles ≈ Downtime / MTTR (usamos MTTR ≈ 1.7 min estimado en la tabla de componentes).
+
 
 **Lo cual se tiene que:**
 
@@ -1228,3 +1257,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 - **Secrets Manager** - Gestión centralizada de secrets
 - **ALB** (Application Load Balancer) - Balanceo de carga
 - **SNS** - Mensajería y eventos asíncronos
+
+# 3. Diagrama de arquitectura
+
+![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)

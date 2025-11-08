@@ -1,0 +1,40 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: promptsales-eks
+  region: us-east-1
+  version: "1.29"
+
+iam:
+  withOIDC: true
+
+managedNodeGroups:
+  # Nodos on-demand para tráfico online (base capacity)
+  - name: ng-ondemand
+    instanceType: m6i.4xlarge
+    desiredCapacity: 9     # <-- tamaño base del cluster
+    minSize: 9
+    maxSize: 90            # <-- tope para autoscaling (10x)
+    volumeSize: 100
+    labels: { workload: "knative-online" }
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+
+  # (Opcional) Nodos spot para procesos en background
+  - name: ng-spot
+    instanceType: m6i.2xlarge
+    desiredCapacity: 0
+    minSize: 0
+    maxSize: 40
+    spot: true
+    labels: { workload: "batch" }
+    taints:
+      - key: batch
+        value: "true"
+        effect: NoSchedule
+
+
+#El tamaño del clúster no vive en el manifiesto de Knative Service (ksvc).
+# El ksvc controla autoscaling por revisión/pod (minScale, maxScale, target), pero el tamaño del clúster (número de nodos) se define en la infra de EKS (eksctl/Terraform/CloudFormation).
