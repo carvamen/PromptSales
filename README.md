@@ -1305,3 +1305,60 @@ Cada release genera:
 - Cambios documentados en **`CHANGELOG.md`** de cada subplataforma.
 - Generado automáticamente durante la publicación.
 - Historial disponible en **tags del repositorio** y **pipelines CI/CD**.
+
+## 5. Frontend Deployment (Vercel + Auth0 + AWS EKS Integration)
+
+### Arquitectura de Despliegue
+El portal unificado se despliega en **Vercel** aprovechando su integración nativa con Next.js y red global de edge locations, mientras se comunica con nuestro backend en AWS EKS a través de Kong API Gateway.
+
+```
+[Next.js en Vercel] → [Kong API Gateway] → [Microservicios AWS EKS]
+    ↓                      ↓                       ↓
+ Auth0 JWT          JWT Validation        Business Logic
+```
+
+### Configuración Multi-Ambiente
+Implementamos un sistema de CI/CD que despliega automáticamente según la branch de GitHub:
+
+| Branch | Ambiente | Dominio | Backend API |
+|--------|----------|---------|-------------|
+| `main` | Producción | `promptsales.com` | `api.promptsales.com` |
+| `staging` | Staging | `staging.promptsales.com` | `api-staging.promptsales.com` |
+| `feature/*` | Preview | Auto-generado | `api-staging.promptsales.com` |
+
+### Variables de Entorno por Ambiente
+
+**Producción (main branch):**
+```env
+NEXT_PUBLIC_API_GATEWAY_URL=https://api.promptsales.com
+NEXT_PUBLIC_OIDC_ISSUER=https://promptsales-prod.auth0.com/
+AUTH0_CLIENT_ID=prod_client_id
+AUTH0_CLIENT_SECRET=prod_client_secret
+AUTH0_AUDIENCE=https://api.promptsales.com
+```
+
+**Staging/Preview:**
+```env
+NEXT_PUBLIC_API_GATEWAY_URL=https://api-staging.promptsales.com
+NEXT_PUBLIC_OIDC_ISSUER=https://promptsales-staging.auth0.com/
+AUTH0_CLIENT_ID=staging_client_id
+AUTH0_CLIENT_SECRET=staging_client_secret
+AUTH0_AUDIENCE=https://api-staging.promptsales.com
+```
+
+### Flujo de Autenticación
+1. **Usuario accede** a la aplicación en Vercel
+2. **Login redirect** a Auth0 mediante `/api/auth/login`
+3. **Callback** intercambia code por tokens JWT
+4. **Tokens almacenados** en cookies HTTP-only seguras
+5. **Frontend llama APIs** con JWT en header Authorization
+6. **Kong valida JWT** contra Auth0 JWKS endpoint
+7. **Request enrutado** al microservicio correspondiente
+
+### Estructura del Frontend
+```
+web/
+├── app/                 # Next.js App Router
+├── components/          # UI Components
+└── lib/                 # Utilities
+```
