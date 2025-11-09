@@ -1261,3 +1261,47 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 # 3. Diagrama de arquitectura
 
 ![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
+
+# 4. Estrategia de Versionado
+
+Se utiliza **Semantic Versioning (SemVer)** para mantener claridad en los cambios, compatibilidad entre módulos y trazabilidad en los despliegues del ecosistema **PromptSales**.
+
+## 4.1 Principios
+
+`MAJOR.MINOR.PATCH`
+
+- **MAJOR:** Cambios incompatibles con versiones anteriores.
+- **MINOR:** Nuevas funcionalidades compatibles.
+- **PATCH:** Correcciones o mejoras internas menores.
+
+Ejemplo: `v2.3.5`
+
+## 4.2 Alcance y Aplicación
+
+- Cada **subplataforma** (PromptContent, PromptAds, PromptCRM) mantiene su **propia versión** siguiendo SemVer.
+- **Componentes compartidos** (`src/shared/`, contratos REST/MCP) heredan la versión del módulo principal.
+- **Imágenes Docker, Knative y K8s** incluyen la etiqueta:
+    
+    `app.kubernetes.io/version: vX.Y.Z`
+    
+- **Pipelines CI/CD** distribuyen automáticamente la versión a artefactos y rutas de despliegue.
+
+## 4.3 Publicación
+
+Herramienta: **semantic-release**
+
+- `feat!:` o `BREAKING CHANGE:` → **MAJOR**
+- `feat:` → **MINOR**
+- `fix:` → **PATCH**
+
+Cada release genera:
+
+1. **Tag Git** (`vX.Y.Z`)
+2. **Imagen Docker** (`:vX.Y.Z`, `:latest`)
+3. **Actualización de datos** (`info.version`, `vN.yaml/json`, etc.)
+
+## 4.4 Registro y Trazabilidad
+
+- Cambios documentados en **`CHANGELOG.md`** de cada subplataforma.
+- Generado automáticamente durante la publicación.
+- Historial disponible en **tags del repositorio** y **pipelines CI/CD**.
