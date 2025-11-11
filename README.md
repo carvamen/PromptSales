@@ -1208,6 +1208,58 @@ export default app;
 7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
 ![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
 
+## API Gateway & Routing
+
+Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gateway/`
+
+**Routing Map:**
+- `/api/content/*` → PromptContent Microservice
+- `/api/ads/*` → PromptAds Microservice  
+- `/api/crm/*` → PromptCRM Microservice
+
+**Features:**
+- Autenticación JWT centralizada
+- CORS management  
+- Logging y métricas
+
+### Variables a definir durante implementación:
+
+#### Service URLs
+- `[NAMESPACE]`: Namespace de Kubernetes donde se despliegan los microservicios
+- `[PORT]`: Puerto interno de cada microservicio
+
+#### Paths Routing  
+- Rutas base a confirmar con equipo de desarrollo
+- Considerar versionado (/v1/, /v2/) si aplica
+
+### Políticas de Seguridad del API Gateway 
+
+#### Capa 1: API Gateway (Kong)
+- **JWT Validation:** Verificación básica de tokens Auth0
+- **CORS Policy:** Restricción de orígenes frontend
+- **Propósito:** Filtro general antes de llegar a la aplicación
+
+#### Capa 2: Application Layer (shared/auth/)
+- **Autorización:** Validación de roles y permisos específicos
+- **Lógica negocio:** Reglas de acceso por dominio
+- **Auditoría:** Logging detallado por operación
+
+## Cloud Provider
+
+### Decisión
+**AWS (Amazon Web Services)** como proveedor cloud principal.
+
+### Servicios AWS Utilizados
+- **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
+- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
+- **ElastiCache** - Redis para caching distribuido
+- **Secrets Manager** - Gestión centralizada de secrets
+- **ALB** (Application Load Balancer) - Balanceo de carga
+- **SNS** - Mensajería y eventos asíncronos
+
+# 3. Diagrama de arquitectura
+
+![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
 
 ## Patrones de Arquitectura
 
@@ -1484,60 +1536,6 @@ class ACLRegistry {
   }
 }
 ```
-
-## API Gateway & Routing
-
-Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gateway/`
-
-**Routing Map:**
-- `/api/content/*` → PromptContent Microservice
-- `/api/ads/*` → PromptAds Microservice  
-- `/api/crm/*` → PromptCRM Microservice
-
-**Features:**
-- Autenticación JWT centralizada
-- CORS management  
-- Logging y métricas
-
-### Variables a definir durante implementación:
-
-#### Service URLs
-- `[NAMESPACE]`: Namespace de Kubernetes donde se despliegan los microservicios
-- `[PORT]`: Puerto interno de cada microservicio
-
-#### Paths Routing  
-- Rutas base a confirmar con equipo de desarrollo
-- Considerar versionado (/v1/, /v2/) si aplica
-
-### Políticas de Seguridad del API Gateway 
-
-#### Capa 1: API Gateway (Kong)
-- **JWT Validation:** Verificación básica de tokens Auth0
-- **CORS Policy:** Restricción de orígenes frontend
-- **Propósito:** Filtro general antes de llegar a la aplicación
-
-#### Capa 2: Application Layer (shared/auth/)
-- **Autorización:** Validación de roles y permisos específicos
-- **Lógica negocio:** Reglas de acceso por dominio
-- **Auditoría:** Logging detallado por operación
-
-## Cloud Provider
-
-### Decisión
-**AWS (Amazon Web Services)** como proveedor cloud principal.
-
-### Servicios AWS Utilizados
-- **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
-- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
-- **ElastiCache** - Redis para caching distribuido
-- **Secrets Manager** - Gestión centralizada de secrets
-- **ALB** (Application Load Balancer) - Balanceo de carga
-- **SNS** - Mensajería y eventos asíncronos
-
-# 3. Diagrama de arquitectura
-
-![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
-
 # 4. Estrategia de Versionado
 
 Se utiliza **Semantic Versioning (SemVer)** para mantener claridad en los cambios, compatibilidad entre módulos y trazabilidad en los despliegues del ecosistema **PromptSales**.
