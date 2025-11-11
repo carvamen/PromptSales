@@ -1275,40 +1275,6 @@ Ver si lo implementos a mano o se configura en AWS
 Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos que usa. Además se exponen los métodos y se hace internamente el llamado a los contratos.
 [SubscriptionACL.js](src/domains/subscriptions/acl/SubscriptionACL.js)
 ``` javascript
-// src/domains/subscriptions/acl/SubscriptionACL.js
-const SubscriptionContractFactory = require('../contracts/SubscriptionContractFactory');
-
-class SubscriptionACL {
-  constructor(identityContract, deps, version = 'v2') {
-    this.identityContract = identityContract;
-    this.deps = deps;
-    this.version = version;
-    
-    // ✅ Factory encapsulado DENTRO del ACL
-    this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
-  }
-
-  async getUserSubscriptionWithProfile(userId) {
-    const userInfo = await this.identityContract.getUserInfo(userId);
-    const subscription = await this.subscriptionContract.getUserSubscription(userId);
-
-    return {
-      user: userInfo,
-      subscription,
-      contractVersion: this.version
-    };
-  }
-
-  // ✅ Método para cambiar versión si es necesario
-  setVersion(version) {
-    this.version = version;
-    this.subscriptionContract = SubscriptionContractFactory.create(version, this.deps);
-  }
-}
-
-module.exports = SubscriptionACL;
-
-module.exports = SubscriptionACL;// src/domains/subscriptions/acl/SubscriptionACL.js
 const SubscriptionContractFactory = require('../contracts/SubscriptionContractFactory');
 
 class SubscriptionACL {
