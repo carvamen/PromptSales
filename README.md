@@ -1208,7 +1208,6 @@ export default app;
 7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
 ![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
 
-
 ## API Gateway & Routing
 
 Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gateway/`
@@ -1262,6 +1261,247 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
 
+## Patrones de Arquitectura
+
+### Throttling middleware
+Ver si lo implementos a mano o se configura en AWS
+
+### Circuit Breaker
+
+### Anti-Corruption Layer
+
+#### ACL File
+
+Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos que usa. Además se exponen los métodos y se hace internamente el llamado a los contratos.
+[SubscriptionACL.js](src/domains/subscriptions/acl/SubscriptionACL.js)
+``` javascript
+const SubscriptionContractFactory = require('../contracts/SubscriptionContractFactory');
+
+class SubscriptionACL {
+  constructor(identityACL, deps, version = 'v2') {
+    this.identityACL = identityACL; // ✅ Recibe IdentityACL, no el contract
+    this.deps = deps;
+    this.version = version;
+    this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
+  }
+
+  async getUserSubscriptionWithProfile(userId) {
+    // ✅ Usa IdentityACL en lugar del contract directo
+    const userInfo = await this.identityACL.getUserInfo(userId);
+    const subscription = await this.subscriptionContract.getUserSubscription(userId);
+
+    return {
+      user: userInfo,
+      subscription,
+      contractVersion: this.version
+    };
+  }
+
+  async canUserPerformAction(userId, action) {
+    // ✅ Combina validaciones de ambos ACLs
+    const [hasAccess, subscription] = await Promise.all([
+      this.identityACL.validateUserAccess(userId, 'subscription'),
+      this.subscriptionContract.getUserSubscription(userId)
+    ]);
+
+    return hasAccess && subscription.status === 'active';
+  }
+
+  async getSubscriptionForBilling(userId) {
+    const userProfile = await this.identityACL.getUserProfileForDisplay(userId);
+    const subscription = await this.subscriptionContract.getUserSubscription(userId);
+
+    return {
+      billingContact: {
+        name: userProfile.displayName,
+        email: userProfile.email
+      },
+      subscription: {
+        plan: subscription.plan,
+        amount: this.calculateBillingAmount(subscription.plan),
+        nextBillingDate: subscription.expiresAt
+      }
+    };
+  }
+
+  calculateBillingAmount(plan) {
+    const prices = { basic: 10, premium: 25, enterprise: 100 };
+    return prices[plan] || 0;
+  }
+}
+
+module.exports = SubscriptionACL;
+```
+
+#### Manejo de versiones de contratos
+Todos los contratos deben extender el [BaseVersionedContract.js](src/shared/contracts/BaseVersionedContract.js), esto para asegurar versionamiento y logging. Los constructores deben incluir la versión del contrato como en el siguiente ejemplo:
+``` javascript
+const BaseVersionedContract = require('../../../../../shared/contracts/BaseVersionedContract');
+
+class SubscriptionContractV1 extends BaseVersionedContract {
+  constructor(deps) {
+    super(deps, 'v1');
+  }
+}
+```
+
+#### Ejemplos de uso
+Los controladores se pueden llamar desde otros controladores del mismo dominio de las siguientes maneras:
+``` javascript
+//Creamos el factory del contrato
+const SubscriptionContractFactory = require('./domains/subscriptions/contracts/SubscriptionContractFactory'); 
+
+// Pedimos la versión específica
+const contractV2 = SubscriptionContractFactory.create('v2', deps);
+const subscription = await contractV2.getUserSubscription(userId);
+
+// O pedimos la versión default
+const defaultContract = SubscriptionContractFactory.create(SubscriptionContractFactory.getDefaultVersion(), deps);
+
+// Creamos una versión específica según el header de un request
+const version = req.headers['api-version'] || 'v2';
+const contract = SubscriptionContractFactory.create(version, deps);
+``` 
+
+#### Agregar versiones de un contrato
+1- Creamos un archivo de la siguiente manera:
+
+``` javascript
+const BaseVersionedContract = require('../../../../../shared/contracts/BaseVersionedContract');
+
+class SubscriptionContractV4 extends BaseVersionedContract {
+  constructor(deps) {
+    super(deps, 'v4');
+  }
+
+  async getUserSubscription(userId) {
+    return this.safeRequest('GetUserSubscription', async () => {
+      const response = await this.http.get(`/v4/subscriptions/${userId}`, {
+        headers: this.getHeaders()
+      });
+      
+      // New V4 response format
+      return {
+        plan: response.plan,
+        status: response.status,
+        expiresAt: response.expiresAt,
+        // NEW: Add usage metrics
+        usage: response.usageMetrics,
+        // NEW: Add billing info
+        billing: response.billingDetails
+      };
+    });
+  }
+
+  // NEW: Add method only available in V4
+  async getUsageAnalytics(userId) {
+    return this.safeRequest('GetUsageAnalytics', async () => {
+      const response = await this.http.get(`/v4/subscriptions/${userId}/analytics`);
+      return response;
+    });
+  }
+}
+
+module.exports = SubscriptionContractV4;
+``` 
+
+2- Actualizamos el [SubscriptionContractFactory.js](src/domains/subscriptions/contracts/SubscriptionContractFactory.js):
+``` javascript
+const SubscriptionContractV4 = require('./versions/v4/SubscriptionContractV4');
+
+class SubscriptionContractFactory {
+  static create(version, deps) {
+    const versionMap = {
+      'v1': SubscriptionContractV1,
+      'v2': SubscriptionContractV2,
+      'v3': SubscriptionContractV3,
+      'v4': SubscriptionContractV4  // ADD THIS LINE
+    };
+
+    const ContractClass = versionMap[version];
+    if (!ContractClass) {
+      throw new Error(`Unsupported contract version: ${version}`);
+    }
+
+    return new ContractClass(deps);
+  }
+
+  static getSupportedVersions() {
+    return ['v1', 'v2', 'v3', 'v4'];  // UPDATE THIS
+  }
+
+  // Optional: Update default version
+  static getDefaultVersion() {
+    return 'v3';  // Or keep as v2
+  }
+}
+``` 
+
+3- Actualizamos el [SubscriptionContractMapper.js](src/domains/subscriptions/contracts/SubscriptionContractMapper.js) si cambió el formato del response
+``` javascript
+//Agregar método
+static mapToV4Format(response) {
+  return {
+    plan: response.plan,
+    status: response.status,
+    expiresAt: response.expiresAt,
+    usage: response.usage || {},  // Handle missing usage
+    billing: response.billing || {} // Handle missing billing
+  };
+}
+```
+
+#### Llamados desde otros dominios
+El controller de un dominio externo debe pasar la versión que usara del contrato cuando crea el ACL. Los dominios externos NO deben tener acceso al factory.
+[PaymentController.js](src/domains/payments/controllers/PaymentController.js)
+``` javascript
+class PaymentController {
+  constructor(deps) {
+    // ✅ Solo recibe ACLs, ningún contract directo
+    this.subscriptionACL = deps.subscriptionACL;
+  }
+
+  async processPayment(userId, amount) {
+    // ✅ Usa métodos de alto nivel del ACL
+    const billingInfo = await this.subscriptionACL.getSubscriptionForBilling(userId);
+    const canPay = await this.subscriptionACL.canUserPerformAction(userId, 'make_payment');
+
+    if (!canPay) {
+      throw new Error('Usuario no puede realizar pagos');
+    }
+
+    return await this.chargeUser(
+      billingInfo.billingContact.email,
+      billingInfo.subscription.amount
+    );
+  }
+}
+```
+
+#### Registro de ACL
+Si se agregan ACLs se deben agregar al registro centralizado
+src/shared/acl/ACLRegistry.js
+[ACLRegistry.js](src/shared/acl/ACLRegistry.js)
+``` javascript
+const IdentityACL = require('../../domains/identity/acl/IdentityACL');
+const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL');
+
+class ACLRegistry {
+  static init(deps) {
+    // ✅ Crear IdentityACL primero
+    const identityACL = new IdentityACL(deps.identityContract);
+    
+    return {
+      identityACL,
+      
+      // ✅ Diferentes ACLs de subscription para cada dominio
+      subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
+      subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
+      subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
+    };
+  }
+}
+```
 # 4. Estrategia de Versionado
 
 Se utiliza **Semantic Versioning (SemVer)** para mantener claridad en los cambios, compatibilidad entre módulos y trazabilidad en los despliegues del ecosistema **PromptSales**.

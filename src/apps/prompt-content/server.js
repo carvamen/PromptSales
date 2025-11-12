@@ -24,3 +24,39 @@ app.get('/api/protected', requireAuth, (req, res) => {
 });
 
 module.exports = app;
+
+// src/apps/prompt-content/server.js
+const ACLRegistry = require('../../shared/acl/ACLRegistry');
+
+function setupApplication() {
+  const rawDeps = {
+    identityContract: new IdentityContract(),
+    http: axios,
+    logger: console
+  };
+
+  // ✅ Inicializar todos los ACLs
+  const acls = ACLRegistry.init(rawDeps);
+
+  const dependencies = {
+    ...rawDeps,
+    ...acls
+  };
+
+  // ✅ Inyectar dependencias específicas por dominio
+  const paymentController = new PaymentController({
+    subscriptionACL: dependencies.subscriptionACLForPayments
+  });
+
+  const crmController = new LeadController({
+    subscriptionACL: dependencies.subscriptionACLForCRM,
+    identityACL: dependencies.identityACL
+  });
+
+  const analyticsService = new AnalyticsService({
+    subscriptionACL: dependencies.subscriptionACLForAnalytics,
+    identityACL: dependencies.identityACL
+  });
+
+  return { paymentController, crmController, analyticsService };
+}
