@@ -1,15 +1,23 @@
-// src/gateways/rest/AdsChannelClient.js (ejemplo Circuit Breaker)
-const { createBreaker } = require('../../shared/http/circuitBreakerClient');
-const adsBreaker = createBreaker('https://mcp-promptads.svc.cluster.local');
+// src/gateways/rest/AdsChannelClient.js
+const axios = require('axios');
+const CircuitBreaker = require('../../shared/http/circuitBreakerClient');
 
-async function getCampaign(campaignId) {
-  try {
-    const data = await adsBreaker.fire(`/campaigns/${campaignId}`);
-    return data;
-  } catch (err) {
-    // fallback: retornar valor por defecto o cached response
-    return { id: campaignId, status: 'unavailable', campaigns: [] };
-  }
+const adsCircuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  recoveryTime: 10000,
+});
+
+async function getAdsCampaigns() {
+  return adsCircuitBreaker.call(
+    async () => {
+      const response = await axios.get('https://ads-service/api/v1/campaigns');
+      return response.data;
+    },
+    (errorMessage) => {
+      console.log('Returning fallback due to circuit breaker:', errorMessage);
+      return { campaigns: [], message: 'Fallback: ads service unavailable' };
+    }
+  );
 }
 
-module.exports = { getCampaign };
+module.exports = { getAdsCampaigns };

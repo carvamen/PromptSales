@@ -1,28 +1,44 @@
-// src/shared/http/circuitBreakerClient.js
-const CircuitBreaker = require('opossum');
-const fetch = require('node-fetch');
+class CircuitBreaker {
+  constructor({ failureThreshold = 5, recoveryTime = 10000 }) {
+    this.failureThreshold = failureThreshold; // número máximo de fallos permitidos
+    this.recoveryTime = recoveryTime; // tiempo de espera antes de intentar reabrir (ms)
+    this.failureCount = 0;
+    this.state = 'CLOSED'; // CLOSED | OPEN | HALF_OPEN
+    this.nextAttempt = Date.now();
+  }
 
-function createBreaker(targetUrl, options = {}) {
-  const defaultOpts = {
-    timeout: 3000, // ms
-    errorThresholdPercentage: 50,
-    resetTimeout: 10000 // ms
-  };
-  const opts = { ...defaultOpts, ...options };
+  async call(serviceCall, fallback) {
+    if (this.state === 'OPEN') {
+      if (Date.now() > this.nextAttempt) {
+        this.state = 'HALF_OPEN';
+      } else {
+        return fallback('Circuit breaker is OPEN. Using fallback response.');
+      }
+    }
 
-  const action = (path, optsFetch = {}) => fetch(`${targetUrl}${path}`, optsFetch)
-    .then(res => {
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      return res.json();
-    });
+    try {
+      const result = await serviceCall();
+      this.success();
+      return result;
+    } catch (error) {
+      this.failure();
+      return fallback(error.message);
+    }
+  }
 
-  const breaker = new CircuitBreaker(action, opts);
+  success() {
+    this.failureCount = 0;
+    this.state = 'CLOSED';
+  }
 
-  breaker.on('open', () => console.warn(`Breaker OPEN for ${targetUrl}`));
-  breaker.on('halfOpen', () => console.info(`Breaker HALF-OPEN for ${targetUrl}`));
-  breaker.on('close', () => console.info(`Breaker CLOSED for ${targetUrl}`));
-
-  return breaker;
+  failure() {
+    this.failureCount++;
+    if (this.failureCount >= this.failureThreshold) {
+      this.state = 'OPEN';
+      this.nextAttempt = Date.now() + this.recoveryTime;
+      console.warn(`Circuit breaker OPENED. Next attempt at ${new Date(this.nextAttempt).toISOString()}`);
+    }
+  }
 }
 
-module.exports = { createBreaker };
+module.exports = CircuitBreaker;
