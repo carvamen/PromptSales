@@ -1264,7 +1264,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 ## Patrones de Arquitectura
 
 ### Asynchronous Request-Reply
-Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Para esto usaremos 
+Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Esste patrón nos ayuda a ejecutar los llamados a la IA en "background" y se le da una respuesta al cliente comunicando que está en ejecución. Para esto usaremos 
 [AsyncIAService.js](src/domains/ia/services/AsyncIAService.js) el cual tiene las funciones para empezar los tasks y notificar sobre el profreso.
 
 ``` javascript
@@ -1489,6 +1489,9 @@ class ContentController {
 Se llama a la función submitAsyncTask del ACL para iniciar un request y al getTaskStatus para revisar el progreso.
 
 ### Anti-Corruption Layer
+
+Para aislar los dominios y asegurarnos de que los cambios en uno no afecten a otro usamos el Anti-Corruption Layer. Nos ayuda a mantener la integridad y consistencia del dominio.
+
 
 #### ACL File
 
@@ -1724,6 +1727,8 @@ class ACLRegistry {
 
 ### Circuit Breaker
 
+Este patrón nos ayuda a manejar el fallo de errores al hacer llamados a servicios. Evita que se propague un error al retornar errores default.
+
 Se debe crear un ChannelClient por dominio, dentro de estos se debe crear un CircuitBreaker proveniente de [circuitBreakerClient.js](src/shared/http/circuitBreakerClient.js) y se le asigna una cantidad de fallos permitida y el tiempo de recuperación. Ejemplo de [AdsChannelClient.js](src/gateways/rest/AdsChannelClient.js):
 
 ``` javascript
@@ -1777,9 +1782,12 @@ const app = express();
 app.use(bodyParser.json());
 app.use('/ads', AdsProxy);
 ```
+
 ### Publisher Subscriber / Producer Consumer / Event Driven
 
 ### Throttling
+Controla la cantidad de solicitudes que se reciben en un período de tiempo. Evita sobrecargas y protege contra picos de tráfico no controlados.
+
 Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
 
 ``` javascript
