@@ -1700,7 +1700,6 @@ class PaymentController {
 
 #### Registro de ACL
 Si se agregan ACLs se deben agregar al registro centralizado
-src/shared/acl/ACLRegistry.js
 [ACLRegistry.js](src/shared/acl/ACLRegistry.js)
 ``` javascript
 const IdentityACL = require('../../domains/identity/acl/IdentityACL');
@@ -1724,12 +1723,65 @@ class ACLRegistry {
 ```
 
 ### Circuit Breaker
-Esto debe ir en los proxys
 
+Se debe crear un ChannelClient por dominio, dentro de estos se debe crear un CircuitBreaker proveniente de [circuitBreakerClient.js](src/shared/http/circuitBreakerClient.js) y se le asigna una cantidad de fallos permitida y el tiempo de recuperación. Ejemplo de [AdsChannelClient.js](src/gateways/rest/AdsChannelClient.js):
+
+``` javascript
+const axios = require('axios');
+const CircuitBreaker = require('../../shared/http/circuitBreakerClient');
+
+const adsCircuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  recoveryTime: 10000,
+});
+
+async function getAdsCampaigns() {
+  return adsCircuitBreaker.call(
+    async () => {
+      const response = await axios.get(process.env.ADS_SERVICE_URL + '/api/v1/campaigns');
+      return response.data;
+    },
+    (errorMessage) => {
+      return {
+        campaigns: [],
+        message: 'Fallback: ads service unavailable',
+        error: errorMessage,
+      };
+    }
+  );
+}
+
+module.exports = { getAdsCampaigns };
+```
+
+Luego se crea el proxy [AdsProxy.js](src/domains/ads/controllers/AdsProxy.js) llamando al cliente que implementa el patrón.
+
+``` javascript
+const { getAdsCampaigns } = require('../../../gateways/rest/AdsChannelClient');
+
+async function fetchCampaigns(req, res) {
+  const data = await getAdsCampaigns();
+  res.json(data);
+}
+
+module.exports = { fetchCampaigns };
+```
+
+Finalmente se debe definir la ruta que tendrá el Proxy en el servidor de la siguiente manera:
+``` javascript
+const express = require('express');
+const bodyParser = require('body-parser');
+const AdsProxy = require('./proxy/AdsProxy');
+
+const app = express();
+app.use(bodyParser.json());
+app.use('/ads', AdsProxy);
+```
 ### Publisher Subscriber / Producer Consumer / Event Driven
 
-### Throttling middleware
+### Throttling
 Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
+
 ``` javascript
 # infrastructure/aws/api-gateway-scaling.tf
 resource "aws_api_gateway_rest_api" "main" {
