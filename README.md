@@ -1318,7 +1318,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 ## Patrones de Arquitectura
 
 ### Asynchronous Request-Reply
-Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Para esto usaremos 
+Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Esste patrón nos ayuda a ejecutar los llamados a la IA en "background" y se le da una respuesta al cliente comunicando que está en ejecución. Para esto usaremos 
 [AsyncIAService.js](src/domains/ia/services/AsyncIAService.js) el cual tiene las funciones para empezar los tasks y notificar sobre el profreso.
 
 ``` javascript
@@ -1543,6 +1543,9 @@ class ContentController {
 Se llama a la función submitAsyncTask del ACL para iniciar un request y al getTaskStatus para revisar el progreso.
 
 ### Anti-Corruption Layer
+
+Para aislar los dominios y asegurarnos de que los cambios en uno no afecten a otro usamos el Anti-Corruption Layer. Nos ayuda a mantener la integridad y consistencia del dominio.
+
 
 #### ACL File
 
@@ -1778,6 +1781,8 @@ class ACLRegistry {
 
 ### Circuit Breaker
 
+Este patrón nos ayuda a manejar el fallo de errores al hacer llamados a servicios. Evita que se propague un error al retornar errores default.
+
 Se debe crear un ChannelClient por dominio, dentro de estos se debe crear un CircuitBreaker proveniente de [circuitBreakerClient.js](src/shared/http/circuitBreakerClient.js) y se le asigna una cantidad de fallos permitida y el tiempo de recuperación. Ejemplo de [AdsChannelClient.js](src/gateways/rest/AdsChannelClient.js):
 
 ``` javascript
@@ -1831,9 +1836,12 @@ const app = express();
 app.use(bodyParser.json());
 app.use('/ads', AdsProxy);
 ```
+
 ### Publisher Subscriber / Producer Consumer / Event Driven
 
 ### Throttling
+Controla la cantidad de solicitudes que se reciben en un período de tiempo. Evita sobrecargas y protege contra picos de tráfico no controlados.
+
 Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
 
 ``` javascript
@@ -2740,7 +2748,7 @@ module.exports = ACLRegistry;
 3. Actualizar tests que dependan de la versión del contrato.
 
 
-## 7) Notas rápidas + Checklist por PR
+## Notas rápidas + Checklist por PR
 
 **Notas rápidas**
 - PUBLIC/INTERNAL/ADMIN deben respetar la matriz de seguridad.
@@ -2750,3 +2758,78 @@ module.exports = ACLRegistry;
 - **S3** lo leen/escriben **servicios** (no repos de dominio); usar **AES256** server-side.
 - Redis con **TLS** habilitado; no guardar **PII**.
 - **Audience** de Auth0 por microservicio.
+
+### 7. Operación con AWS Managed Services
+
+La arquitectura está preparada para trasladarse a **AWS Managed Services** sin modificar el código de negocio.
+
+- **Alcance de AWS Managed Services**
+    - Operación de **EKS, RDS, ElastiCache, ALB, Secrets Manager y KMS**.
+    - Parches, backups, recuperación ante desastres e incidentes sobre estos recursos.
+- **Infraestructura**
+    
+    Directorios:
+    
+    ```
+    k8s/
+    ├── knative/
+    │   ├── prompt-content.yaml
+    │   ├── prompt-ads.yaml
+    │   └── prompt-crm.yaml
+    └── operations/
+        ├── pdb.yaml
+        └── resources-limits.yaml
+    
+    ```
+    
+    Implementación en `k8s/knative/prompt-content.yaml`:
+    
+    ```yaml
+    metadata:
+      name: prompt-content
+      labels:
+        app.kubernetes.io/name: prompt-content
+        app.kubernetes.io/part-of: promptsales
+        env: production
+    ```
+    
+- **Observabilidad integrada**
+    
+    Estructura para monitoreo:
+    
+    ```
+    k8s/
+    └── observability/
+        └── cloudwatch-agent.yaml
+    ```
+    
+    Etiqueta en servicio (`k8s/knative/prompt-ads.yaml`):
+    
+    ```yaml
+    metadata:
+      name: prompt-ads
+      annotations:
+        logs.promptsales.com/forward-to: cloudwatch
+        monitoring.promptsales.com/enabled: "true"
+    ```
+    
+- **Seguridad**
+    
+    Integración con Secrets Manager:
+    
+    ```
+    k8s/
+    ├── external-secrets/
+    │   ├── service-account.yaml
+    │   ├── secret-store.yaml
+    │   └── external-secret.yaml
+    └── eks/
+        └── etct-encryption.yaml
+    ```
+    
+    Los microservicios consumen estos secretos vía variables de entorno en `src/apps/**/server.js` y módulos compartidos (`src/shared/auth/oidc-setup.js`, etc.), mientras que AWS Managed Services administra rotación y políticas sobre Secrets Manager/KMS.
+
+## 8. Diagramas de Clases (puntos críticos)
+
+### 8.2 Diagrama PromptAds
+![PromptAds-UML](assets/PromptAds-UML.png)
