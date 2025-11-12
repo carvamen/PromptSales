@@ -1566,3 +1566,33 @@ No utilizaremos Supabase porque nuestra arquitectura ya incluye:
 - ✅ **AWS Secrets Manager** para gestión de secrets
 
 Supabase no proporciona capacidades adicionales que justifiquen la complejidad de integración.
+
+## 6. Convivencia entre Microservicios y Domain Driven Design
+
+### Relación Microservicio → Domain: 1:N
+
+En PromptSales, hemos establecido una relación **1:N** entre dominios bounded context y microservicios. Cada dominio está compuesto por múltiples microservicios especializados.
+
+#### Estructura Implementada:
+
+**CRM Domain** (1 dominio : 3 microservicios)
+- Opportunity Service
+- Conversation Service  
+- Leads Service
+
+**Ads Domain** (1 dominio : 3 microservicios)
+- Campaign Service
+- Audience Service
+- Reporting Service
+
+**Content Domain** (1 dominio : 2 microservicios)
+- Templates Service
+- ContentGeneration Service
+
+### Comunicación Cross-Domain en Arquitectura de Microservicios
+
+En nuestra implementación, las llamadas cross-domain se realizan a través de las **APIs REST de cada microservicio**, manteniendo el principio del Anti-Corruption Layer (ACL) pero adaptado al contexto distribuido.
+
+Cada microservicio expone su contrato mediante **APIs REST documentadas con OpenAPI** (definidas en `contracts/rest/`) y los ACLs se implementan como clients HTTP especializados que consumen estas APIs. Por ejemplo, cuando el servicio de Payments necesita validar una suscripción, utiliza el SubscriptionACL que internamente llama a la API REST del microservicio de Subscriptions.
+
+La comunicación se realiza mediante **HTTP/REST con autenticación JWT**, donde cada microservicio tiene su propio audience configurado en Auth0, garantizando el aislamiento de seguridad entre dominios. Los contratos versionados en `contracts/rest/` definen las interfaces estables que permiten la evolución independiente de cada microservicio.
