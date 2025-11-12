@@ -2828,8 +2828,3 @@ La arquitectura está preparada para trasladarse a **AWS Managed Services** sin 
     ```
     
     Los microservicios consumen estos secretos vía variables de entorno en `src/apps/**/server.js` y módulos compartidos (`src/shared/auth/oidc-setup.js`, etc.), mientras que AWS Managed Services administra rotación y políticas sobre Secrets Manager/KMS.
-
-## 8. Diagramas de Clases (puntos críticos)
-
-### 8.2 Diagrama PromptAds
-![PromptAds-UML](assets/PromptAds-UML.png)
