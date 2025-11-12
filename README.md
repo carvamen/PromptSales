@@ -1264,15 +1264,243 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 ## Patrones de Arquitectura
 
 ### Throttling middleware
-Ver si lo implementos a mano o se configura en AWS
+Ver si lo implementos a mano o se configura en AWS API Gateway
 
 ### Circuit Breaker
+Esto debe ir en los proxys
+
+### Publisher Subscriber / Producer Consumer / Event Driven
+
+### Asynchronous Request-Reply
+Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Para esto usaremos 
+[AsyncIAService.js](src/domains/ia/services/AsyncIAService.js) el cual tiene las funciones para empezar los tasks y notificar sobre el profreso.
+
+``` javascript
+// src/domains/ia/services/AsyncIAService.js
+const { v4: uuidv4 } = require('uuid');
+
+class AsyncIAService {
+  constructor(taskManager, sqsService, snsService, lambdaService) {
+    this.taskManager = taskManager;
+    this.sqsService = sqsService;
+    this.snsService = snsService;
+    this.lambdaService = lambdaService;
+  }
+
+  async submitTask(operation, input, userId) {
+    const task = await this.taskManager.createTask({
+      id: uuidv4(),
+      userId,
+      operation,
+      input,
+      estimatedCompletionTime: this.calculateEstimatedTime(operation, input)
+    });
+
+    // Encolar en SQS para procesamiento asíncrono
+    await this.sqsService.enqueue(process.env.IA_TASKS_QUEUE_URL, {
+      taskId: task.id,
+      operation,
+      input,
+      userId
+    });
+
+    return task;
+  }
+
+  async processTask(taskId, operation, input, userId) {
+    const task = await this.taskManager.getTask(taskId, userId);
+    
+    try {
+      task.markAsProcessing();
+      await this.taskManager.updateTask(task);
+
+      // Opción 1: Invocar Lambda function para procesamiento pesado
+      if (this.shouldUseLambda(operation)) {
+        const result = await this.invokeIALambda(operation, input, taskId);
+        task.markAsCompleted(result);
+      
+      // Opción 2: Procesamiento directo (solo para operaciones rápidas)
+      } else {
+        const result = await this.executeIAOperation(operation, input, (progress) => {
+          task.updateProgress(progress);
+          this.taskManager.updateTask(task);
+        });
+        task.markAsCompleted(result);
+      }
+
+      await this.taskManager.updateTask(task);
+
+      // Publicar notificación en SNS para webhooks
+      await this.publishTaskCompletionNotification(task);
+
+    } catch (error) {
+      task.markAsFailed(error.message);
+      await this.taskManager.updateTask(task);
+      throw error;
+    }
+  }
+
+  async invokeIALambda(operation, input, taskId) {
+    const lambdaFunctionName = this.getLambdaFunctionName(operation);
+    
+    const result = await this.lambdaService.invoke({
+      FunctionName: lambdaFunctionName,
+      InvocationType: 'RequestResponse', // O 'Event' para asíncrono
+      Payload: JSON.stringify({
+        taskId,
+        operation,
+        input,
+        callbackUrl: `${process.env.API_BASE_URL}/api/v1/ia/tasks/${taskId}/callback`
+      })
+    });
+
+    return JSON.parse(result.Payload);
+  }
+
+  async publishTaskCompletionNotification(task) {
+    await this.snsService.publish({
+      TopicArn: process.env.IA_TASKS_TOPIC_ARN,
+      Message: JSON.stringify({
+        eventType: 'ia.task.completed',
+        taskId: task.id,
+        userId: task.userId,
+        operation: task.operation,
+        completedAt: task.completedAt,
+        resultUrl: `${process.env.API_BASE_URL}/api/v1/ia/tasks/${task.id}/result`
+      }),
+      MessageAttributes: {
+        eventType: {
+          DataType: 'String',
+          StringValue: 'ia.task.completed'
+        },
+        userId: {
+          DataType: 'String',
+          StringValue: task.userId
+        }
+      }
+    });
+  }
+
+  calculateEstimatedTime(operation, input) {
+    const estimates = {
+      'content-generation': 30000, // 30 segundos
+      'image-processing': 60000,   // 1 minuto
+      'data-analysis': 120000      // 2 minutos
+    };
+    
+    return new Date(Date.now() + (estimates[operation] || 30000));
+  }
+
+  shouldUseLambda(operation) {
+    const lambdaOperations = ['content-generation', 'image-processing', 'data-analysis'];
+    return lambdaOperations.includes(operation);
+  }
+
+  getLambdaFunctionName(operation) {
+    const functionMap = {
+      'content-generation': process.env.CONTENT_GENERATION_LAMBDA,
+      'image-processing': process.env.IMAGE_PROCESSING_LAMBDA,
+      'data-analysis': process.env.DATA_ANALYSIS_LAMBDA
+    };
+    
+    return functionMap[operation];
+  }
+
+  async cancelTask(taskId, userId) {
+    const task = await this.taskManager.getTask(taskId, userId);
+    
+    if (task.status === 'pending' || task.status === 'processing') {
+      task.markAsFailed('Task cancelled by user');
+      await this.taskManager.updateTask(task);
+      
+      // Publicar evento de cancelación
+      await this.snsService.publish({
+        TopicArn: process.env.IA_TASKS_TOPIC_ARN,
+        Message: JSON.stringify({
+          eventType: 'ia.task.cancelled',
+          taskId: task.id,
+          userId: task.userId
+        })
+      });
+    }
+  }
+}
+
+module.exports = AsyncIAService;
+```
+
+El [AsyncIAController.js](src/domains/ia/controllers/AsyncIAController.js) tiene las funciones y hace los llamados mientras que el [IAACL.js](src/domains/ia/acl/IAACL.js) expone los métodos para llamados cross-domain.
+
+Los llamados desde otros dominios deben hacerse de la siguiente manera
+
+``` javascript
+// src/domains/content/controllers/ContentController.js
+class ContentController {
+  constructor(deps) {
+    // ✅ Solo recibe ACLs
+    this.iaACL = deps.iaACL;
+    this.subscriptionACL = deps.subscriptionACLForContent;
+  }
+
+  async generateAIContent(req, res) {
+    const { prompt, style, length } = req.body;
+    const userId = req.user.id;
+
+    try {
+      // ✅ Usar ACL para operaciones de IA
+      const taskResponse = await this.iaACL.submitAsyncTask(
+        'content-generation', 
+        { prompt, style, length },
+        userId
+      );
+
+      res.status(202).json({
+        success: true,
+        data: {
+          taskId: taskResponse.taskId,
+          statusUrl: taskResponse.statusUrl,
+          estimatedCompletionTime: taskResponse.estimatedCompletionTime
+        },
+        message: 'Content generation started'
+      });
+
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  async checkContentGenerationStatus(req, res) {
+    const { taskId } = req.params;
+    const userId = req.user.id;
+
+    try {
+      const status = await this.iaACL.getTaskStatus(taskId, userId);
+      
+      res.json({
+        success: true,
+        data: status
+      });
+
+    } catch (error) {
+      res.status(404).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+}
+```
+
+Se llama a la función submitAsyncTask del ACL para iniciar un request y al getTaskStatus para revisar el progreso.
 
 ### Anti-Corruption Layer
 
 #### ACL File
 
-Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos que usa. Además se exponen los métodos y se hace internamente el llamado a los contratos.
+Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos para llamadas del mismo dominio y ACL para llamadas de otros dominios. Además se exponen los métodos y se hace internamente el llamado a los contratos.
 [SubscriptionACL.js](src/domains/subscriptions/acl/SubscriptionACL.js)
 ``` javascript
 const SubscriptionContractFactory = require('../contracts/SubscriptionContractFactory');
