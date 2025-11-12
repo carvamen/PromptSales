@@ -1263,14 +1263,6 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ## Patrones de Arquitectura
 
-### Throttling middleware
-Ver si lo implementos a mano o se configura en AWS API Gateway
-
-### Circuit Breaker
-Esto debe ir en los proxys
-
-### Publisher Subscriber / Producer Consumer / Event Driven
-
 ### Asynchronous Request-Reply
 Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Para esto usaremos 
 [AsyncIAService.js](src/domains/ia/services/AsyncIAService.js) el cual tiene las funciones para empezar los tasks y notificar sobre el profreso.
@@ -1730,6 +1722,418 @@ class ACLRegistry {
   }
 }
 ```
+
+### Circuit Breaker
+Esto debe ir en los proxys
+
+### Publisher Subscriber / Producer Consumer / Event Driven
+
+### Throttling middleware
+Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
+``` javascript
+# infrastructure/aws/api-gateway-scaling.tf
+resource "aws_api_gateway_rest_api" "main" {
+  name        = "async-ia-api-100k"
+  description = "API Gateway optimizado para 100K RPM"
+  
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_account" "main" {
+  cloudwatch_role_arn = aws_iam_role.cloudwatch.arn
+}
+
+# IAM Role para CloudWatch Logs
+resource "aws_iam_role" "cloudwatch" {
+  name = "api-gateway-cloudwatch-global"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "cloudwatch" {
+  name = "cloudwatch-logs"
+  role = aws_iam_role.cloudwatch.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:PutLogEvents",
+          "logs:GetLogEvents",
+          "logs:FilterLogEvents"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Stage configuration para alta escalabilidad
+resource "aws_api_gateway_stage" "production" {
+  stage_name    = "production"
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  deployment_id = aws_api_gateway_deployment.main.id
+
+  # Configuración para 100K RPM
+  cache_cluster_enabled = true
+  cache_cluster_size    = "1.6"  # 1.6GB cache para reducir latencia
+
+  # Throttling settings a nivel de stage
+  dynamic "access_log_settings" {
+    for_each = var.enable_access_logs ? [1] : []
+    content {
+      destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+      format          = jsonencode({
+        requestId        = "$context.requestId"
+        ip               = "$context.identity.sourceIp"
+        caller           = "$context.identity.caller"
+        user             = "$context.identity.user"
+        requestTime      = "$context.requestTime"
+        httpMethod       = "$context.httpMethod"
+        resourcePath     = "$context.resourcePath"
+        status           = "$context.status"
+        protocol         = "$context.protocol"
+        responseLength   = "$context.responseLength"
+        integrationLatency = "$context.integration.latency"
+      })
+    }
+  }
+
+  # X-Ray tracing para debugging
+  xray_tracing_enabled = true
+
+  lifecycle {
+    ignore_changes = [deployment_id]
+  }
+}
+
+# Method Settings optimizados para 100K RPM
+resource "aws_api_gateway_method_settings" "high_traffic_optimized" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  stage_name  = aws_api_gateway_stage.production.stage_name
+  method_path = "*/*"
+
+  settings {
+    # Throttling settings para 100K RPM (~1666 RPS)
+    throttling_burst_limit = 5000     # Burst alto para picos
+    throttling_rate_limit  = 1666.0   # 100,000 requests por minuto
+    
+    # Caching settings
+    caching_enabled = true
+    cache_ttl_in_seconds = 300        # 5 minutos cache para respuestas
+    cache_data_encrypted = true
+    
+    # Logging y métricas
+    metrics_enabled        = true
+    logging_level          = "INFO"
+    data_trace_enabled     = true
+    require_authorization_for_cache_control = true
+    
+    # Timeouts optimizados
+    throttling_rate_limit  = 1666.0
+  }
+}
+
+# Configuración específica para endpoints de IA
+resource "aws_api_gateway_method_settings" "ia_endpoints" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  stage_name  = aws_api_gateway_stage.production.stage_name
+  method_path = "ia-tasks/POST"
+
+  settings {
+    # Throttling más agresivo para IA (operaciones costosas)
+    throttling_burst_limit = 1000
+    throttling_rate_limit  = 500      # 30K RPM para IA
+    
+    caching_enabled = false  # No cachear operaciones async
+    metrics_enabled = true
+    logging_level   = "INFO"
+  }
+}
+
+resource "aws_api_gateway_method_settings" "status_endpoints" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  stage_name  = aws_api_gateway_stage.production.stage_name
+  method_path = "ia-tasks/GET"
+
+  settings {
+    # Status checks pueden ser más frecuentes
+    throttling_burst_limit = 10000
+    throttling_rate_limit  = 1666     # 100K RPM compartido
+    
+    caching_enabled = true
+    cache_ttl_in_seconds = 10         # Cache corto para status
+    metrics_enabled = true
+  }
+}
+
+# Usage Plans para diferentes niveles
+resource "aws_api_gateway_usage_plan" "enterprise_100k" {
+  name        = "enterprise-100k"
+  description = "Plan enterprise para 100K RPM"
+
+  api_stages {
+    api_id = aws_api_gateway_rest_api.main.id
+    stage  = aws_api_gateway_stage.production.stage_name
+  }
+
+  # Throttling a nivel de usage plan
+  throttle_settings {
+    burst_limit = 10000
+    rate_limit  = 1666.0
+  }
+
+  # Quota mensual muy alto
+  quota_settings {
+    limit  = 50000000  # 50 millones requests/mes
+    offset = 0
+    period = "MONTH"
+  }
+}
+
+resource "aws_api_gateway_usage_plan" "premium_10k" {
+  name        = "premium-10k"
+  description = "Plan premium para 10K RPM"
+
+  api_stages {
+    api_id = aws_api_gateway_rest_api.main.id
+    stage  = aws_api_gateway_stage.production.stage_name
+  }
+
+  throttle_settings {
+    burst_limit = 1000
+    rate_limit  = 166.0  # 10K RPM
+  }
+
+  quota_settings {
+    limit  = 5000000  # 5 millones requests/mes
+    period = "MONTH"
+  }
+}
+
+resource "aws_api_gateway_usage_plan" "free_1k" {
+  name        = "free-1k"
+  description = "Plan free para 1K RPM"
+
+  api_stages {
+    api_id = aws_api_gateway_rest_api.main.id
+    stage  = aws_api_gateway_stage.production.stage_name
+  }
+
+  throttle_settings {
+    burst_limit = 100
+    rate_limit  = 16.6  # 1K RPM
+  }
+
+  quota_settings {
+    limit  = 50000  # 50K requests/mes
+    period = "MONTH"
+  }
+}
+
+# API Gateway Deployment con configuración optimizada
+resource "aws_api_gateway_deployment" "main" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  stage_name  = ""
+
+  # Triggers para forzar deployment cuando cambian los recursos
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_rest_api.main.body,
+      aws_api_gateway_method_settings.high_traffic_optimized.id,
+      aws_api_gateway_method_settings.ia_endpoints.id,
+      aws_api_gateway_method_settings.status_endpoints.id,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# CloudWatch Log Group para access logs
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/apigateway/${aws_api_gateway_rest_api.main.name}"
+  retention_in_days = 30
+
+  tags = {
+    Environment = "production"
+    Service     = "api-gateway"
+  }
+}
+
+# CloudWatch Alarms para monitoreo de 100K RPM
+resource "aws_cloudwatch_metric_alarm" "high_4xx_rate" {
+  alarm_name          = "${aws_api_gateway_rest_api.main.name}-high-4xx-rate"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "4XXError"
+  namespace           = "AWS/ApiGateway"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "1000"  # 1000 errores 4xx por minuto
+  alarm_description   = "Monitor high 4XX error rate for API Gateway"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ApiName = aws_api_gateway_rest_api.main.name
+    Stage   = aws_api_gateway_stage.production.stage_name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_throttling" {
+  alarm_name          = "${aws_api_gateway_rest_api.main.name}-high-throttling"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ThrottledRequests"
+  namespace           = "AWS/ApiGateway"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "5000"  # 5000 requests throttled por minuto
+  alarm_description   = "Monitor high throttling rate"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ApiName = aws_api_gateway_rest_api.main.name
+    Stage   = aws_api_gateway_stage.production.stage_name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_latency" {
+  alarm_name          = "${aws_api_gateway_rest_api.main.name}-high-latency"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "Latency"
+  namespace           = "AWS/ApiGateway"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "2000"  # 2 segundos de latencia promedio
+  alarm_description   = "Monitor high API latency"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ApiName = aws_api_gateway_rest_api.main.name
+    Stage   = aws_api_gateway_stage.production.stage_name
+  }
+}
+
+# SNS Topic para alertas
+resource "aws_sns_topic" "alerts" {
+  name = "api-gateway-alerts"
+}
+
+# WAF Web ACL para protección adicional
+resource "aws_wafv2_web_acl" "api_gateway" {
+  name  = "api-gateway-protection-100k"
+  scope = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesCommonRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "RateLimitRule"
+    priority = 2
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 2000  # IP-based rate limiting
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimitRule"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "api-gateway-waf"
+    sampled_requests_enabled   = true
+  }
+}
+
+# Asociar WAF con API Gateway
+resource "aws_wafv2_web_acl_association" "api_gateway" {
+  resource_arn = aws_api_gateway_stage.production.arn
+  web_acl_arn  = aws_wafv2_web_acl.api_gateway.arn
+}
+
+# Variables
+variable "enable_access_logs" {
+  description = "Enable API Gateway access logs"
+  type        = bool
+  default     = true
+}
+
+# Outputs
+output "api_gateway_url" {
+  value = "${aws_api_gateway_stage.production.invoke_url}/"
+}
+
+output "api_gateway_id" {
+  value = aws_api_gateway_rest_api.main.id
+}
+
+output "usage_plan_ids" {
+  value = {
+    enterprise = aws_api_gateway_usage_plan.enterprise_100k.id
+    premium    = aws_api_gateway_usage_plan.premium_10k.id
+    free       = aws_api_gateway_usage_plan.free_1k.id
+  }
+}
+``` 
+
+
+
 # 4. Estrategia de Versionado
 
 Se utiliza **Semantic Versioning (SemVer)** para mantener claridad en los cambios, compatibilidad entre módulos y trazabilidad en los despliegues del ecosistema **PromptSales**.
