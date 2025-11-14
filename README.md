@@ -1305,7 +1305,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ### Servicios AWS Utilizados
 - **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
-- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
+- **RDS** (Relational Database Service) - Bases de datos SQLServer
 - **ElastiCache** - Redis para caching distribuido
 - **Secrets Manager** - Gestión centralizada de secrets
 - **ALB** (Application Load Balancer) - Balanceo de carga
@@ -1483,7 +1483,7 @@ Los llamados desde otros dominios deben hacerse de la siguiente manera
 // src/domains/content/controllers/ContentController.js
 class ContentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs
+    // Solo recibe ACLs
     this.iaACL = deps.iaACL;
     this.subscriptionACL = deps.subscriptionACLForContent;
   }
@@ -1493,7 +1493,7 @@ class ContentController {
     const userId = req.user.id;
 
     try {
-      // ✅ Usar ACL para operaciones de IA
+      // Usar ACL para operaciones de IA
       const taskResponse = await this.iaACL.submitAsyncTask(
         'content-generation', 
         { prompt, style, length },
@@ -1556,14 +1556,14 @@ const SubscriptionContractFactory = require('../contracts/SubscriptionContractFa
 
 class SubscriptionACL {
   constructor(identityACL, deps, version = 'v2') {
-    this.identityACL = identityACL; // ✅ Recibe IdentityACL, no el contract
+    this.identityACL = identityACL; // Recibe IdentityACL, no el contract
     this.deps = deps;
     this.version = version;
     this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
   }
 
   async getUserSubscriptionWithProfile(userId) {
-    // ✅ Usa IdentityACL en lugar del contract directo
+    // Usa IdentityACL en lugar del contract directo
     const userInfo = await this.identityACL.getUserInfo(userId);
     const subscription = await this.subscriptionContract.getUserSubscription(userId);
 
@@ -1575,7 +1575,7 @@ class SubscriptionACL {
   }
 
   async canUserPerformAction(userId, action) {
-    // ✅ Combina validaciones de ambos ACLs
+    // Combina validaciones de ambos ACLs
     const [hasAccess, subscription] = await Promise.all([
       this.identityACL.validateUserAccess(userId, 'subscription'),
       this.subscriptionContract.getUserSubscription(userId)
@@ -1734,12 +1734,12 @@ El controller de un dominio externo debe pasar la versión que usara del contrat
 ``` javascript
 class PaymentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs, ningún contract directo
+    // Solo recibe ACLs, ningún contract directo
     this.subscriptionACL = deps.subscriptionACL;
   }
 
   async processPayment(userId, amount) {
-    // ✅ Usa métodos de alto nivel del ACL
+    // Usa métodos de alto nivel del ACL
     const billingInfo = await this.subscriptionACL.getSubscriptionForBilling(userId);
     const canPay = await this.subscriptionACL.canUserPerformAction(userId, 'make_payment');
 
@@ -1764,13 +1764,13 @@ const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL
 
 class ACLRegistry {
   static init(deps) {
-    // ✅ Crear IdentityACL primero
+    // Crear IdentityACL primero
     const identityACL = new IdentityACL(deps.identityContract);
     
     return {
       identityACL,
       
-      // ✅ Diferentes ACLs de subscription para cada dominio
+      // Diferentes ACLs de subscription para cada dominio
       subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
       subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
       subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
@@ -1783,63 +1783,43 @@ class ACLRegistry {
 
 Este patrón nos ayuda a manejar el fallo de errores al hacer llamados a servicios. Evita que se propague un error al retornar errores default.
 
-Se debe crear un ChannelClient por dominio, dentro de estos se debe crear un CircuitBreaker proveniente de [circuitBreakerClient.js](src/shared/http/circuitBreakerClient.js) y se le asigna una cantidad de fallos permitida y el tiempo de recuperación. Ejemplo de [AdsChannelClient.js](src/gateways/rest/AdsChannelClient.js):
+Este patrón está implementado en el layer de proxy, todos los archivos se encuentran en la carpeta [proxy-layer](proxy-layer/).
+Se debe crear un ChannelClient por dominio dentro de la carpeta de [clients](proxy-layer/clients/).
+
+Luego se crea un Proxy para el dominio en la carpeta [proxies](proxy-layer/proxies/). Finalmente se debe agregar al [lambdaHandler.js](proxy-layer/lambdaHandler.js).
 
 ``` javascript
-const axios = require('axios');
-const CircuitBreaker = require('../../shared/http/circuitBreakerClient');
+import { ContentProxy } from './proxies/ContentProxy.js';
 
-const adsCircuitBreaker = new CircuitBreaker({
-  failureThreshold: 3,
-  recoveryTime: 10000,
-});
+const contentProxy = new ContentProxy();
 
-async function getAdsCampaigns() {
-  return adsCircuitBreaker.call(
-    async () => {
-      const response = await axios.get(process.env.ADS_SERVICE_URL + '/api/v1/campaigns');
-      return response.data;
-    },
-    (errorMessage) => {
-      return {
-        campaigns: [],
-        message: 'Fallback: ads service unavailable',
-        error: errorMessage,
-      };
+export const handler = async (event) => {
+  try {
+    const { service, payload } = event;
+
+    switch (service) {
+      case 'crm':
+        return await crmProxy.getCustomer(payload.id);
+      case 'ads':
+        return await adsProxy.getAdCampaign(payload.id);
+      case 'content':
+        return await contentProxy.getContent(payload.id);
+      default:
+        throw new Error(`Unknown service: ${service}`);
     }
-  );
-}
-
-module.exports = { getAdsCampaigns };
-```
-
-Luego se crea el proxy [AdsProxy.js](src/domains/ads/controllers/AdsProxy.js) llamando al cliente que implementa el patrón.
-
-``` javascript
-const { getAdsCampaigns } = require('../../../gateways/rest/AdsChannelClient');
-
-async function fetchCampaigns(req, res) {
-  const data = await getAdsCampaigns();
-  res.json(data);
-}
-
-module.exports = { fetchCampaigns };
-```
-
-Finalmente se debe definir la ruta que tendrá el Proxy en el servidor de la siguiente manera:
-``` javascript
-const express = require('express');
-const bodyParser = require('body-parser');
-const AdsProxy = require('./proxy/AdsProxy');
-
-const app = express();
-app.use(bodyParser.json());
-app.use('/ads', AdsProxy);
+  } catch (err) {
+    console.error('Error:', err.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
+  }
+};
 ```
 
 ### Publisher Subscriber / Producer Consumer / Event Driven
 
-### Throttling
+### Throttling - Cambiar para implementar con Kong
 Controla la cantidad de solicitudes que se reciben en un período de tiempo. Evita sobrecargas y protege contra picos de tráfico no controlados.
 
 Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
@@ -2246,7 +2226,9 @@ output "usage_plan_ids" {
 }
 ``` 
 
+# 4. Frontend Deployment (Vercel)
 
+<<<<<<< HEAD
 
 # 4. Estrategia de Versionado
 
@@ -2294,6 +2276,8 @@ Cada release genera:
 
 # 5. Frontend Deployment (Vercel)
 
+=======
+>>>>>>> 06247ffc9ca8ada752958933916fb187a2b1b63c
 ## Decisión de Uso
 Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unificado (frontend), manteniendo toda la lógica de negocio y APIs en nuestra infraestructura AWS.
 
@@ -2305,15 +2289,15 @@ Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unifica
 
 ## ¿Por qué NO Supabase?
 No utilizaremos Supabase porque nuestra arquitectura ya incluye:
-- ✅ **Auth0** para autenticación enterprise-grade
-- ✅ **AWS RDS** para bases de datos relacionales
-- ✅ **MongoDB Atlas** para datos no relacionales  
-- ✅ **Redis ElastiCache** para caching
-- ✅ **AWS Secrets Manager** para gestión de secrets
+- **Auth0** para autenticación enterprise-grade
+- **AWS RDS** para bases de datos relacionales
+- **MongoDB Atlas** para datos no relacionales  
+- **Redis ElastiCache** para caching
+- **AWS Secrets Manager** para gestión de secrets
 
 Supabase no proporciona capacidades adicionales que justifiquen la complejidad de integración.
 
-# 6. Convivencia entre Microservicios y Domain Driven Design
+# 5. Convivencia entre Microservicios y Domain Driven Design
 
 ## Relación Microservicio → Domain: 1:N
 
@@ -2797,13 +2781,13 @@ const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL
 
 class ACLRegistry {
   static init(deps) {
-    // ✅ Crear IdentityACL primero
+    // Crear IdentityACL primero
     const identityACL = new IdentityACL(deps.identityContract);
     
     return {
       identityACL,
       
-      // ✅ Diferentes ACLs de subscription para cada dominio
+      // Diferentes ACLs de subscription para cada dominio
       subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
       subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
       subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
