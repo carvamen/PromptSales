@@ -1305,7 +1305,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ### Servicios AWS Utilizados
 - **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
-- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
+- **RDS** (Relational Database Service) - Bases de datos SQLServer
 - **ElastiCache** - Redis para caching distribuido
 - **Secrets Manager** - Gestión centralizada de secrets
 - **ALB** (Application Load Balancer) - Balanceo de carga
@@ -1483,7 +1483,7 @@ Los llamados desde otros dominios deben hacerse de la siguiente manera
 // src/domains/content/controllers/ContentController.js
 class ContentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs
+    // Solo recibe ACLs
     this.iaACL = deps.iaACL;
     this.subscriptionACL = deps.subscriptionACLForContent;
   }
@@ -1493,7 +1493,7 @@ class ContentController {
     const userId = req.user.id;
 
     try {
-      // ✅ Usar ACL para operaciones de IA
+      // Usar ACL para operaciones de IA
       const taskResponse = await this.iaACL.submitAsyncTask(
         'content-generation', 
         { prompt, style, length },
@@ -1556,14 +1556,14 @@ const SubscriptionContractFactory = require('../contracts/SubscriptionContractFa
 
 class SubscriptionACL {
   constructor(identityACL, deps, version = 'v2') {
-    this.identityACL = identityACL; // ✅ Recibe IdentityACL, no el contract
+    this.identityACL = identityACL; // Recibe IdentityACL, no el contract
     this.deps = deps;
     this.version = version;
     this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
   }
 
   async getUserSubscriptionWithProfile(userId) {
-    // ✅ Usa IdentityACL en lugar del contract directo
+    // Usa IdentityACL en lugar del contract directo
     const userInfo = await this.identityACL.getUserInfo(userId);
     const subscription = await this.subscriptionContract.getUserSubscription(userId);
 
@@ -1575,7 +1575,7 @@ class SubscriptionACL {
   }
 
   async canUserPerformAction(userId, action) {
-    // ✅ Combina validaciones de ambos ACLs
+    // Combina validaciones de ambos ACLs
     const [hasAccess, subscription] = await Promise.all([
       this.identityACL.validateUserAccess(userId, 'subscription'),
       this.subscriptionContract.getUserSubscription(userId)
@@ -1734,12 +1734,12 @@ El controller de un dominio externo debe pasar la versión que usara del contrat
 ``` javascript
 class PaymentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs, ningún contract directo
+    // Solo recibe ACLs, ningún contract directo
     this.subscriptionACL = deps.subscriptionACL;
   }
 
   async processPayment(userId, amount) {
-    // ✅ Usa métodos de alto nivel del ACL
+    // Usa métodos de alto nivel del ACL
     const billingInfo = await this.subscriptionACL.getSubscriptionForBilling(userId);
     const canPay = await this.subscriptionACL.canUserPerformAction(userId, 'make_payment');
 
@@ -1764,13 +1764,13 @@ const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL
 
 class ACLRegistry {
   static init(deps) {
-    // ✅ Crear IdentityACL primero
+    // Crear IdentityACL primero
     const identityACL = new IdentityACL(deps.identityContract);
     
     return {
       identityACL,
       
-      // ✅ Diferentes ACLs de subscription para cada dominio
+      // Diferentes ACLs de subscription para cada dominio
       subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
       subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
       subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
@@ -2305,11 +2305,11 @@ Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unifica
 
 ### ¿Por qué NO Supabase?
 No utilizaremos Supabase porque nuestra arquitectura ya incluye:
-- ✅ **Auth0** para autenticación enterprise-grade
-- ✅ **AWS RDS** para bases de datos relacionales
-- ✅ **MongoDB Atlas** para datos no relacionales  
-- ✅ **Redis ElastiCache** para caching
-- ✅ **AWS Secrets Manager** para gestión de secrets
+- **Auth0** para autenticación enterprise-grade
+- **AWS RDS** para bases de datos relacionales
+- **MongoDB Atlas** para datos no relacionales  
+- **Redis ElastiCache** para caching
+- **AWS Secrets Manager** para gestión de secrets
 
 Supabase no proporciona capacidades adicionales que justifiquen la complejidad de integración.
 
@@ -2725,13 +2725,13 @@ const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL
 
 class ACLRegistry {
   static init(deps) {
-    // ✅ Crear IdentityACL primero
+    // Crear IdentityACL primero
     const identityACL = new IdentityACL(deps.identityContract);
     
     return {
       identityACL,
       
-      // ✅ Diferentes ACLs de subscription para cada dominio
+      // Diferentes ACLs de subscription para cada dominio
       subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
       subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
       subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
