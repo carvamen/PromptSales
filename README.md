@@ -1313,7 +1313,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 # 3. Diagrama de arquitectura
 
-![Diagrama de arquitectura](assets/Diagrama-Arquitectura.png)
+![Diagrama de arquitectura](assets/Diagrama-Arquitectura.svg)
 
 ## Patrones de Arquitectura
 
