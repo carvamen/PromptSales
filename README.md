@@ -6,6 +6,7 @@ PromptSales - Ecosistema de Marketing con IA
 .
 ├── README.md
 ├── assets/
+│   ├── Diagrama-Arquitectura.png
 │   └── DDD-DataFlow.svg
 ├── contracts/
 │   ├── rest/
@@ -37,6 +38,7 @@ PromptSales - Ecosistema de Marketing con IA
 │       └── webhook-signing.md
 ├── k8s/
 │   ├── knative/
+│   │   ├── kubernetes-config.yaml
 │   │   ├── prompt-content.yaml
 │   │   ├── prompt-ads.yaml
 │   │   └── prompt-crm.yaml
@@ -44,6 +46,9 @@ PromptSales - Ecosistema de Marketing con IA
 │   │   ├── kong-deployment.yaml
 │   │   ├── kong-routes.yaml
 │   │   └── kong-plugins.yaml
+│   ├── irsa/
+│   │   ├── oidc-provider.yaml
+│   │   └── iam-roles.yaml
 │   ├── ingress/
 │   │   └── alb-tls13.yaml
 │   ├── external-secrets/
@@ -58,6 +63,9 @@ PromptSales - Ecosistema de Marketing con IA
 │   │   └── mongo-connection.json
 │   └── redis/
 │       └── elasticache-redis.yaml
+├── infrastructure/
+│   └── aws/
+│       └── api-gateway-scaling.tf
 └── src/
     ├── shared/
     │   ├── auth/
@@ -65,29 +73,60 @@ PromptSales - Ecosistema de Marketing con IA
     │   │   └── middleware.js         
     │   ├── http/
     │   │   ├── errors.js
+    │   │   ├── circuitBreakerClient.js
     │   │   └── idempotency.js
     │   ├── observability/
     │   │   ├── logger.js
     │   │   └── tracing.js
+    │   ├── acl/
+    │   │   └── ACLRegistry.js
+    │   ├── contracts/
+    │   │   └── BaseVersionedContract.js
+    │   ├── security/
+    │   │   ├── validators.js
+    │   │   ├── requireScope.js
+    │   │   ├── rate-limit.js
+    │   │   └── allowlist.js
     │   └── utils/
     ├── gateways/
     │   ├── rest/
+    │   │   ├── MetaAdsClient.js
     │   │   └── AdsChannelClient.js
     │   ├── mcp/
     │   │   └── AdsOrchestratorClient.js
     │   └── webhooks/
     │       ├── verifySignature.js
     │       └── receiver.js
+    ├── infrastructure/
+    │   ├── sql/
+    │   │   └── SqlCampaignRepo.js
+    │   ├── s3/
+    │   │   └── S3Client.js
+    │   └── cache/
+    │       └── redisClient.js
     ├── domains/
     │   ├── identity/
     │   │   ├── contracts/
     │   │   │   └── IdentityContract.js
+    │   │   ├── acl/
+    │   │   │   └── IdentityACL.js
     │   │   └── controllers/
     │   │       ├── UserProfileController.js
     │   │       ├── AuthenticationController.js
     │   │       └── LoginController.js
     │   ├── subscriptions/
     │   │   ├── contracts/
+    │   │   │   ├── SubscriptionContractFactory.js
+    │   │   │   ├── SubscriptionContractMapper.js
+    │   │   │   ├── versions/
+    │   │   │   │   ├── v1/
+    │   │   │   │   │   └── SubscriptionContractV1.js
+    │   │   │   │   ├── v2/
+    │   │   │   │   │   └── SubscriptionContractV2.js
+    │   │   │   │   ├── v3/
+    │   │   │   │   │   └── SubscriptionContractV3.js
+    │   │   │   │   └── v4/
+    │   │   │   │       └── SubscriptionContractV4.js
     │   │   │   └── SubscriptionContract.js
     │   │   ├── controllers/
     │   │   │   └── SubscriptionRenewalController.js
@@ -107,6 +146,7 @@ PromptSales - Ecosistema de Marketing con IA
     │   │   └── controllers/
     │   │       ├── CampaignController.js
     │   │       ├── AudienceController.js
+    │   │       ├── AdsProxy.js
     │   │       └── PolicyController.js
     │   ├── content/
     │   │   └── controllers/
@@ -123,19 +163,33 @@ PromptSales - Ecosistema de Marketing con IA
     │   ├── agenda/
     │   ├── integrations/
     │   ├── ia/
+    │   │   ├── controllers/
+    │   │   │   └── AsyncIAController.js
+    │   │   ├── services/
+    │   │   │   └── AsyncIAService.js
+    │   │   └── acl/
+    │   │       └── IAACL.js
     │   ├── cache/
     │   ├── audit-events/
     │   ├── clients-products/
     │   ├── social/
     │   └── messaging-multicanal/
+    ├── presentation/
+    │   └── fetchClient.js
     ├── apps/
     │   ├── prompt-content/
     │   │   └── server.js
     │   ├── prompt-ads/
+    │   │   ├── routes.js
+    │   │   ├── wiring/
+    │   │   │   └── subscriptions.js
+    │   │   ├── proxy/
+    │   │   │   └── AdsProxy.js
     │   │   └── server.js
     │   └── prompt-crm/
     │       └── server.js
     └── jest/
+        ├── AdsRoutes.test.js
         └── SubscriptionTests.js
 
 
@@ -1251,7 +1305,7 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ### Servicios AWS Utilizados
 - **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
-- **RDS** (Relational Database Service) - Bases de datos PostgreSQL
+- **RDS** (Relational Database Service) - Bases de datos SQLServer
 - **ElastiCache** - Redis para caching distribuido
 - **Secrets Manager** - Gestión centralizada de secrets
 - **ALB** (Application Load Balancer) - Balanceo de carga
@@ -1429,7 +1483,7 @@ Los llamados desde otros dominios deben hacerse de la siguiente manera
 // src/domains/content/controllers/ContentController.js
 class ContentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs
+    // Solo recibe ACLs
     this.iaACL = deps.iaACL;
     this.subscriptionACL = deps.subscriptionACLForContent;
   }
@@ -1439,7 +1493,7 @@ class ContentController {
     const userId = req.user.id;
 
     try {
-      // ✅ Usar ACL para operaciones de IA
+      // Usar ACL para operaciones de IA
       const taskResponse = await this.iaACL.submitAsyncTask(
         'content-generation', 
         { prompt, style, length },
@@ -1502,14 +1556,14 @@ const SubscriptionContractFactory = require('../contracts/SubscriptionContractFa
 
 class SubscriptionACL {
   constructor(identityACL, deps, version = 'v2') {
-    this.identityACL = identityACL; // ✅ Recibe IdentityACL, no el contract
+    this.identityACL = identityACL; // Recibe IdentityACL, no el contract
     this.deps = deps;
     this.version = version;
     this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
   }
 
   async getUserSubscriptionWithProfile(userId) {
-    // ✅ Usa IdentityACL en lugar del contract directo
+    // Usa IdentityACL en lugar del contract directo
     const userInfo = await this.identityACL.getUserInfo(userId);
     const subscription = await this.subscriptionContract.getUserSubscription(userId);
 
@@ -1521,7 +1575,7 @@ class SubscriptionACL {
   }
 
   async canUserPerformAction(userId, action) {
-    // ✅ Combina validaciones de ambos ACLs
+    // Combina validaciones de ambos ACLs
     const [hasAccess, subscription] = await Promise.all([
       this.identityACL.validateUserAccess(userId, 'subscription'),
       this.subscriptionContract.getUserSubscription(userId)
@@ -1680,12 +1734,12 @@ El controller de un dominio externo debe pasar la versión que usara del contrat
 ``` javascript
 class PaymentController {
   constructor(deps) {
-    // ✅ Solo recibe ACLs, ningún contract directo
+    // Solo recibe ACLs, ningún contract directo
     this.subscriptionACL = deps.subscriptionACL;
   }
 
   async processPayment(userId, amount) {
-    // ✅ Usa métodos de alto nivel del ACL
+    // Usa métodos de alto nivel del ACL
     const billingInfo = await this.subscriptionACL.getSubscriptionForBilling(userId);
     const canPay = await this.subscriptionACL.canUserPerformAction(userId, 'make_payment');
 
@@ -1710,13 +1764,13 @@ const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL
 
 class ACLRegistry {
   static init(deps) {
-    // ✅ Crear IdentityACL primero
+    // Crear IdentityACL primero
     const identityACL = new IdentityACL(deps.identityContract);
     
     return {
       identityACL,
       
-      // ✅ Diferentes ACLs de subscription para cada dominio
+      // Diferentes ACLs de subscription para cada dominio
       subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
       subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
       subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
@@ -2231,11 +2285,11 @@ Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unifica
 
 ### ¿Por qué NO Supabase?
 No utilizaremos Supabase porque nuestra arquitectura ya incluye:
-- ✅ **Auth0** para autenticación enterprise-grade
-- ✅ **AWS RDS** para bases de datos relacionales
-- ✅ **MongoDB Atlas** para datos no relacionales  
-- ✅ **Redis ElastiCache** para caching
-- ✅ **AWS Secrets Manager** para gestión de secrets
+- **Auth0** para autenticación enterprise-grade
+- **AWS RDS** para bases de datos relacionales
+- **MongoDB Atlas** para datos no relacionales  
+- **Redis ElastiCache** para caching
+- **AWS Secrets Manager** para gestión de secrets
 
 Supabase no proporciona capacidades adicionales que justifiquen la complejidad de integración.
 
@@ -2268,3 +2322,489 @@ En nuestra implementación, las llamadas cross-domain se realizan a través de l
 Cada microservicio expone su contrato mediante **APIs REST documentadas con OpenAPI** (definidas en `contracts/rest/`) y los ACLs se implementan como clients HTTP especializados que consumen estas APIs. Por ejemplo, cuando el servicio de Payments necesita validar una suscripción, utiliza el SubscriptionACL que internamente llama a la API REST del microservicio de Subscriptions.
 
 La comunicación se realiza mediante **HTTP/REST con autenticación JWT**, donde cada microservicio tiene su propio audience configurado en Auth0, garantizando el aislamiento de seguridad entre dominios. Los contratos versionados en `contracts/rest/` definen las interfaces estables que permiten la evolución independiente de cada microservicio.
+## Guías prácticas por capa (presentation, application, domain, infrastructure)
+
+### Guías de Programación por Capa
+Para la estructura de estas carpetas ver la estructura general del proyecto.
+
+Capas:
+- **presentation/** → cliente (Next.js / Vercel)
+- **application/**  → routers Express + middlewares de seguridad
+- **domain/**       → entidades/servicios puros y eventos de dominio
+- **infrastructure/** → adaptadores: DB (SQL/Mongo), cache (Redis), S3, clientes REST
+
+**Wiring mínimo (ejemplo PromptAds):**
+```js
+const express = require("express");
+const { requireAuth } = require("../../shared/auth/middleware");
+const adsRouter = require("./routes");
+
+const app = express();
+app.use(express.json());
+app.use("/api/v1", adsRouter);   // montar las rutas de ejemplo
+module.exports = app;
+```
+
+**Variables de entorno usadas en guías:**
+- `NEXT_PUBLIC_API_BASE` (frontend)
+- `INTERNAL_ALLOWLIST` lista de IPs separadas por coma (internal)
+- `S3_ASSETS_BUCKET`, `AWS_REGION`
+- `META_ADS_BASE`, `META_TOKEN`
+- `REDIS_HOST`
+
+---
+
+## 0) Matriz de seguridad (public / internal / admin) + Instrucciones
+
+| Tipo      | Autenticación                                | Autorización                         | Rate-limit (app) | Rate-limit (Kong) | Red de acceso                | Validación entrada   | Observabilidad        |
+|-----------|----------------------------------------------|--------------------------------------|------------------|-------------------|------------------------------|---------------------|-----------------------|
+| Public    | Opcional (JWT si aplica)                     | N/A                                   | 60 req/min/IP    | Plan "free_1k"    | CORS (frontend)               | zod/joi + anti-SSRF | request-id + logs     |
+| Internal  | **JWT m2m** (Client Credentials, aud por svc)| Scope `svc:*` o `role:service`       | 600 req/min/IP   | Plan "premium_10k"| **IP allowlist** / mTLS      | zod/joi + idempot.  | trazas + métricas     |
+| Admin     | **JWT user** + 2FA Auth0                     | `role:admin` + scopes finos          | 120 req/min/IP   | Plan "enterprise" | CORS admin + allowlist       | zod/joi estricto    | auditoría (GDPR/PII)  |
+
+**Qué se debe hacer:**
+1. **Clasifica cada ruta** como `Public`, `Internal` o `Admin` **antes de codificar**.
+2. **Aplica middlewares en este orden**: `requireAuth?` → `requireInternal?/requireScope?` → `ipAllowlist?` → `rate-limit` → `validate(zod)`.
+3. **Mutaciones críticas**: exige header `Idempotency-Key` (usa `src/shared/http/idempotency.js`).
+4. **Webhooks**: firma HMAC, tolerancia de reloj ±5 min y reintentos exponenciales.
+5. **Audience por servicio**: revisa env `AUTH0_AUDIENCE` correcto en Knative YAML.
+
+## 1) Application Layer (routers + seguridad)
+
+[validators.js](src/shared/security/validators.js)
+
+```javascript
+const { z } = require("zod");
+
+const zCampaignCreate = z.object({
+  name: z.string().min(3),
+  channel: z.enum(["google","meta","tiktok","mailchimp","linkedin"]),
+  budget: z.number().positive().optional(),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+});
+
+function validate(schema) {
+  return (req, res, next) => {
+    const src = ["POST","PUT","PATCH"].includes(req.method) ? req.body : req.query;
+    const parsed = schema.safeParse(src);
+    if (!parsed.success) {
+      return res.status(400).json({ code: "INVALID_INPUT", errors: parsed.error.issues });
+    }
+    return next();
+  };
+}
+
+module.exports = { zCampaignCreate, validate };
+```
+
+[requireScope.js](src/shared/security/requireScope.js)
+
+```javascript
+function requireScope(scopes) {
+  const needed = Array.isArray(scopes) ? scopes : [scopes];
+  return (req, res, next) => {
+    const claims = req.user || {};
+    const tokenScopes = new Set((claims.scope || "").split(" "));
+    const roles = new Set(claims.roles || claims["https://promptsales.com/roles"] || []);
+    const ok = needed.every(s => tokenScopes.has(s) || roles.has(s));
+    if (!ok) return res.status(403).json({ code: "INSUFFICIENT_SCOPE" });
+    next();
+  };
+}
+
+function requireInternal() {
+  return (req, res, next) => {
+    const claims = req.user || {};
+    if (!(claims.azp || claims.gty === "client-credentials")) {
+      return res.status(403).json({ code: "FORBIDDEN_INTERNAL" });
+    }
+    next();
+  };
+}
+
+module.exports = { requireScope, requireInternal };
+```
+
+[rate-limit.js](src/shared/security/rate-limit.js)
+```javascript
+const rateLimit = require("express-rate-limit");
+const rlPublic   = rateLimit({ windowMs: 60_000, max: 60  });
+const rlInternal = rateLimit({ windowMs: 60_000, max: 600 });
+const rlAdmin    = rateLimit({ windowMs: 60_000, max: 120 });
+module.exports = { rlPublic, rlInternal, rlAdmin };
+```
+
+[allowlist.js](src/shared/security/allowlist.js)
+```javascript
+const ALLOW = (process.env.INTERNAL_ALLOWLIST || "").split(",").filter(Boolean);
+
+function ipAllowlist() {
+  return (req, res, next) => {
+    if (!ALLOW.length) return next();
+    const ip = (req.ip || "").replace("::ffff:","");
+    if (!ALLOW.includes(ip)) return res.status(403).json({ code: "IP_NOT_ALLOWED" });
+    next();
+  };
+}
+
+module.exports = { ipAllowlist };
+```
+
+[routes.js](src/apps/prompt-ads/routes.js)
+```javascript
+const express = require("express");
+const { requireAuth } = require("../../shared/auth/middleware");
+const { rlPublic, rlInternal, rlAdmin } = require("../../shared/security/rate-limit");
+const { requireScope, requireInternal } = require("../../shared/security/requireScope");
+const { validate, zCampaignCreate } = require("../../shared/security/validators");
+const { ipAllowlist } = require("../../shared/security/allowlist");
+
+const router = express.Router();
+
+// PUBLIC (catalog)
+router.get("/public/templates", rlPublic, async (_req, res) => {
+  res.json({ items: ["short-form","long-form"] });
+});
+
+// INTERNAL (m2m)
+router.post("/internal/ads/sync",
+  requireAuth, requireInternal(), ipAllowlist(), rlInternal, validate(zCampaignCreate),
+  async (_req, res) => res.status(202).json({ accepted: true })
+);
+
+// ADMIN
+router.post("/admin/users/ban",
+  requireAuth, requireScope(["admin","role:admin"]), rlAdmin,
+  validate(zCampaignCreate.pick({ name:true })), // ejemplo de zod
+  async (_req, res) => res.json({ ok: true })
+);
+
+module.exports = router;
+```
+
+**Qué se debe hacer:**
+1. **Crear el router por dominio** dentro de `src/apps/prompt-ads/`
+2. **Montarlo en el app server** (`apps/<subempresa>/server.js`) bajo `/api/`.
+3. **Etiquetar rutas** (Public/Internal/Admin) y **agregar middlewares** en el orden indicado.
+4. **Validar inputs** con zod y devolver `400` con `code: "INVALID_INPUT"` si falla.
+5. **Configurar rate limits** según matriz; no mezclar límites entre tipos.
+6. **Probar con Supertest** (ver sección de tests).
+
+
+## 2) Presentation Layer (Next.js / Vercel)
+
+[fetchClient.js](src/presentation/fetchClient.js)
+```javascript
+// ESM recomendado en frontend
+import { v4 as uuid } from "uuid";
+
+export async function apiFetch(path, { method="GET", body, token, idempotent=false } = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5000);
+
+  const headers = { "Content-Type":"application/json", "X-Request-Id": uuid() };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (idempotent) headers["Idempotency-Key"] = uuid();
+
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}${path}`, {
+      method, headers, signal: ctrl.signal, body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally { clearTimeout(t); }
+}
+```
+
+**Qué se debe hacer:**
+1. Crear `src/presentation/fetchClient.js` y **usar `apiFetch`** en páginas/acciones.
+2. Configurar `NEXT_PUBLIC_API_BASE` (p. ej. `https://api.promptsales.com`).
+3. En mutaciones (`POST/PUT/DELETE`) críticas, **activar `idempotent: true`**.
+4. Manejar errores HTTP (401/403/429/5xx) mostrando mensajes de UI.
+5. No exponer secretos en el cliente.
+
+
+## 3) Domain Layer (entidades/servicios/eventos)
+
+[campaign.entity.js](src/domains/ads/campaign.entity.js)
+```javascript
+class Campaign {
+  constructor({ id, name, channel, budget = 0 }) {
+    if (!name || name.length < 3) throw new Error("Invalid name");
+    this.id = id; this.name = name; this.channel = channel; this.budget = budget;
+  }
+  increaseBudget(delta) {
+    if (delta <= 0) throw new Error("delta>0");
+    this.budget += delta;
+    return { type: "ads.campaign.budget_changed", data: { id: this.id, budget: this.budget } };
+  }
+}
+module.exports = { Campaign };
+```
+
+[campaign.service.js](src/domains/ads/campaign.service.js)
+```javascript
+class CampaignService {
+  constructor({ repo, eventBus }) { this.repo = repo; this.eventBus = eventBus; }
+
+  async create(cmd) {
+    const c = await this.repo.create(cmd);
+    await this.eventBus.publish({ type:"ads.campaign.created", data:{ id: c.id }});
+    return c;
+  }
+
+  async increaseBudget(id, delta) {
+    const c = await this.repo.getById(id);
+    const evt = c.increaseBudget(delta);
+    await this.repo.save(c);
+    await this.eventBus.publish(evt);
+    return c;
+  }
+}
+module.exports = { CampaignService };
+```
+
+**Qué se debe hacer:**
+1. Modelar **entidades puras** sin dependencias de Express/DB.
+2. Implementar **servicios de dominio** que usen `repo` + `eventBus` por inyección.
+3. Emitir **eventos de dominio** en mutaciones relevantes.
+4. Proveer **tests de unidad** del dominio (sin I/O).
+
+## 4) Infrastructure Layer (repos, S3, REST externos, cache)
+
+[SqlCampaignRepo.js](src/infrastructure/sql/SqlCampaignRepo.js)
+```javascript
+const sql = require("mssql");
+
+class SqlCampaignRepo {
+  constructor(pool) { this.pool = pool; }
+
+  async create({ name, channel, budget=0 }) {
+    const r = await this.pool.request()
+      .input("name", sql.NVarChar, name)
+      .input("channel", sql.NVarChar, channel)
+      .input("budget", sql.Int, budget)
+      .query("INSERT INTO Campaigns(name,channel,budget) OUTPUT INSERTED.id VALUES(@name,@channel,@budget)");
+    return { id: r.recordset[0].id, name, channel, budget };
+  }
+
+  async getById(id) {
+    const r = await this.pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT id,name,channel,budget FROM Campaigns WHERE id=@id");
+    if (!r.recordset[0]) throw new Error("NOT_FOUND");
+    const row = r.recordset[0];
+    return { id: row.id, name: row.name, channel: row.channel, budget: row.budget };
+  }
+
+  async save(c) {
+    await this.pool.request()
+      .input("id", sql.Int, c.id)
+      .input("budget", sql.Int, c.budget)
+      .query("UPDATE Campaigns SET budget=@budget WHERE id=@id");
+  }
+}
+
+module.exports = { SqlCampaignRepo };
+```
+
+[S3Client.js](src/infrastructure/s3/S3Client.js)
+```javascript
+const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+const s3 = new S3Client({ region: process.env.AWS_REGION });
+
+async function putAsset({ key, body, contentType }) {
+  await s3.send(new PutObjectCommand({
+    Bucket: process.env.S3_ASSETS_BUCKET,
+    Key: key, Body: body, ContentType: contentType, ServerSideEncryption: "AES256"
+  }));
+  return { url: `s3://${process.env.S3_ASSETS_BUCKET}/${key}` };
+}
+
+async function getAsset({ key }) {
+  return s3.send(new GetObjectCommand({ Bucket: process.env.S3_ASSETS_BUCKET, Key: key }));
+}
+
+module.exports = { putAsset, getAsset };
+```
+[MetaAdsClient.js](src/infrastructure/rest/MetaAdsClient.js)
+```javascript
+const axios = require("axios");
+const CircuitBreaker = require("../../shared/http/circuitBreakerClient"); // ya existe en tu repo
+
+const breaker = new CircuitBreaker({ failureThreshold: 3, recoveryTime: 10_000 });
+
+async function metaGetCampaign(id) {
+  return breaker.call(
+    async () => {
+      const res = await axios.get(`${process.env.META_ADS_BASE}/campaigns/${id}`, {
+        timeout: 3000,
+        headers: { Authorization: `Bearer ${process.env.META_TOKEN}` }
+      });
+      return res.data;
+    },
+    () => ({ id, status: "unknown", message: "fallback-meta" })
+  );
+}
+
+module.exports = { metaGetCampaign };
+```
+
+[redisClient.js](src/infrastructure/cache/redisClient.js)
+```javascript
+const Redis = require("ioredis");
+const redis = new Redis({ host: process.env.REDIS_HOST, port: 6379, tls: {} });
+
+function cacheSet(k, v, ttl=300){ return redis.set(k, JSON.stringify(v), "EX", ttl); }
+async function cacheGet(k){ const v = await redis.get(k); return v ? JSON.parse(v) : null; }
+
+module.exports = { redis, cacheSet, cacheGet };
+```
+
+**Qué se debe hacer:**
+1. Crear adaptadores por tecnología (SQL/Mongo/S3/Redis/REST) dentro de `src/infrastructure/` y **no** usarlos directo en dominio.
+2. Exponer métodos **mínimos** requeridos por el servicio de dominio.
+3. Configurar timeouts, TLS y **circuit breaker** para REST externos.
+4. **S3**: subidas con `AES256` y nunca PII sin cifrado a nivel campo.
+
+## 5) Tests (seguridad de rutas)
+
+[ads.routes.test.js](src/apps/prompt-ads/__tests__/ads.routes.test.js)
+```javascript
+const request = require("supertest");
+const app = require("../server");
+
+describe("Ads routes security", () => {
+  it("public ok", async () => {
+    const res = await request(app).get("/api/v1/public/templates");
+    expect([200,404]).toContain(res.status); // según wiring real
+  });
+
+  it("internal requiere JWT m2m", async () => {
+    const res = await request(app)
+      .post("/api/v1/internal/ads/sync")
+      .send({ name:"X", channel:"google", start_date:"2025-07-20" });
+    expect([401,403]).toContain(res.status);
+  });
+});
+```
+
+**Qué se debe hacer:**
+1. Añadir al menos **2 tests por tipo** (Public/Internal/Admin) por router.
+2. Mockear `requireAuth` para pruebas positivas con tokens válidos.
+3. Ejecutar en CI con `npm test`/`pnpm test`.
+
+## 6) Registro centralizado de ACLs
+
+Si se agregan ACLs se deben agregar al registro centralizado  
+[ACLRegistry.js](src/shared/acl/ACLRegistry.js)
+```javascript
+const IdentityACL = require('../../domains/identity/acl/IdentityACL');
+const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL');
+
+class ACLRegistry {
+  static init(deps) {
+    // Crear IdentityACL primero
+    const identityACL = new IdentityACL(deps.identityContract);
+    
+    return {
+      identityACL,
+      
+      // Diferentes ACLs de subscription para cada dominio
+      subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
+      subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
+      subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
+    };
+  }
+}
+
+module.exports = ACLRegistry;
+```
+
+**Qué se debe hacer:**
+1. **Nunca** instanciar contracts directos en controladores; usar **ACLRegistry**.
+2. Al crear un nuevo ACL, **registrarlo aquí** y proveer versión por dominio consumidor.
+3. Actualizar tests que dependan de la versión del contrato.
+
+
+## Notas rápidas + Checklist por PR
+
+**Notas rápidas**
+- PUBLIC/INTERNAL/ADMIN deben respetar la matriz de seguridad.
+- INTERNAL siempre con **JWT m2m + ipAllowlist + rate-limit interno**.
+- Mutaciones críticas: header **Idempotency-Key** obligatorio.
+- Clientes REST externos con **circuit breaker + timeout**.
+- **S3** lo leen/escriben **servicios** (no repos de dominio); usar **AES256** server-side.
+- Redis con **TLS** habilitado; no guardar **PII**.
+- **Audience** de Auth0 por microservicio.
+
+### 7. Operación con AWS Managed Services
+
+La arquitectura está preparada para trasladarse a **AWS Managed Services** sin modificar el código de negocio.
+
+- **Alcance de AWS Managed Services**
+    - Operación de **EKS, RDS, ElastiCache, ALB, Secrets Manager y KMS**.
+    - Parches, backups, recuperación ante desastres e incidentes sobre estos recursos.
+- **Infraestructura**
+    
+    Directorios:
+    
+    ```
+    k8s/
+    ├── knative/
+    │   ├── prompt-content.yaml
+    │   ├── prompt-ads.yaml
+    │   └── prompt-crm.yaml
+    └── operations/
+        ├── pdb.yaml
+        └── resources-limits.yaml
+    
+    ```
+    
+    Implementación en `k8s/knative/prompt-content.yaml`:
+    
+    ```yaml
+    metadata:
+      name: prompt-content
+      labels:
+        app.kubernetes.io/name: prompt-content
+        app.kubernetes.io/part-of: promptsales
+        env: production
+    ```
+    
+- **Observabilidad integrada**
+    
+    Estructura para monitoreo:
+    
+    ```
+    k8s/
+    └── observability/
+        └── cloudwatch-agent.yaml
+    ```
+    
+    Etiqueta en servicio (`k8s/knative/prompt-ads.yaml`):
+    
+    ```yaml
+    metadata:
+      name: prompt-ads
+      annotations:
+        logs.promptsales.com/forward-to: cloudwatch
+        monitoring.promptsales.com/enabled: "true"
+    ```
+    
+- **Seguridad**
+    
+    Integración con Secrets Manager:
+    
+    ```
+    k8s/
+    ├── external-secrets/
+    │   ├── service-account.yaml
+    │   ├── secret-store.yaml
+    │   └── external-secret.yaml
+    └── eks/
+        └── etct-encryption.yaml
+    ```
+    
+    Los microservicios consumen estos secretos vía variables de entorno en `src/apps/**/server.js` y módulos compartidos (`src/shared/auth/oidc-setup.js`, etc.), mientras que AWS Managed Services administra rotación y políticas sobre Secrets Manager/KMS.
