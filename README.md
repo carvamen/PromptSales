@@ -2228,6 +2228,56 @@ output "usage_plan_ids" {
 
 # 4. Frontend Deployment (Vercel)
 
+<<<<<<< HEAD
+
+# 4. Estrategia de Versionado
+
+Se utiliza **Semantic Versioning (SemVer)** para mantener claridad en los cambios, compatibilidad entre módulos y trazabilidad en los despliegues del ecosistema **PromptSales**.
+
+## 4.1 Principios
+
+`MAJOR.MINOR.PATCH`
+
+- **MAJOR:** Cambios incompatibles con versiones anteriores.
+- **MINOR:** Nuevas funcionalidades compatibles.
+- **PATCH:** Correcciones o mejoras internas menores.
+
+Ejemplo: `v2.3.5`
+
+## 4.2 Alcance y Aplicación
+
+- Cada **subplataforma** (PromptContent, PromptAds, PromptCRM) mantiene su **propia versión** siguiendo SemVer.
+- **Componentes compartidos** (`src/shared/`, contratos REST/MCP) heredan la versión del módulo principal.
+- **Imágenes Docker, Knative y K8s** incluyen la etiqueta:
+    
+    `app.kubernetes.io/version: vX.Y.Z`
+    
+- **Pipelines CI/CD** distribuyen automáticamente la versión a artefactos y rutas de despliegue.
+
+## 4.3 Publicación
+
+Herramienta: **semantic-release**
+
+- `feat!:` o `BREAKING CHANGE:` → **MAJOR**
+- `feat:` → **MINOR**
+- `fix:` → **PATCH**
+
+Cada release genera:
+
+1. **Tag Git** (`vX.Y.Z`)
+2. **Imagen Docker** (`:vX.Y.Z`, `:latest`)
+3. **Actualización de datos** (`info.version`, `vN.yaml/json`, etc.)
+
+## 4.4 Registro y Trazabilidad
+
+- Cambios documentados en **`CHANGELOG.md`** de cada subplataforma.
+- Generado automáticamente durante la publicación.
+- Historial disponible en **tags del repositorio** y **pipelines CI/CD**.
+
+# 5. Frontend Deployment (Vercel)
+
+=======
+>>>>>>> 06247ffc9ca8ada752958933916fb187a2b1b63c
 ## Decisión de Uso
 Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unificado (frontend), manteniendo toda la lógica de negocio y APIs en nuestra infraestructura AWS.
 
@@ -2249,11 +2299,11 @@ Supabase no proporciona capacidades adicionales que justifiquen la complejidad d
 
 # 5. Convivencia entre Microservicios y Domain Driven Design
 
-### Relación Microservicio → Domain: 1:N
+## Relación Microservicio → Domain: 1:N
 
 En PromptSales, hemos establecido una relación **1:N** entre dominios bounded context y microservicios. Cada dominio está compuesto por múltiples microservicios especializados.
 
-#### Estructura Implementada:
+### Estructura Implementada:
 
 **CRM Domain** (1 dominio : 3 microservicios)
 - Opportunity Service
@@ -2276,9 +2326,81 @@ En nuestra implementación, las llamadas cross-domain se realizan a través de l
 Cada microservicio expone su contrato mediante **APIs REST documentadas con OpenAPI** (definidas en `contracts/rest/`) y los ACLs se implementan como clients HTTP especializados que consumen estas APIs. Por ejemplo, cuando el servicio de Payments necesita validar una suscripción, utiliza el SubscriptionACL que internamente llama a la API REST del microservicio de Subscriptions.
 
 La comunicación se realiza mediante **HTTP/REST con autenticación JWT**, donde cada microservicio tiene su propio audience configurado en Auth0, garantizando el aislamiento de seguridad entre dominios. Los contratos versionados en `contracts/rest/` definen las interfaces estables que permiten la evolución independiente de cada microservicio.
-## Guías prácticas por capa (presentation, application, domain, infrastructure)
 
-### Guías de Programación por Capa
+# 7. Operación con AWS Managed Services
+
+La arquitectura está preparada para trasladarse a **AWS Managed Services** sin modificar el código de negocio.
+
+- **Alcance de AWS Managed Services**
+    - Operación de **EKS, RDS, ElastiCache, ALB, Secrets Manager y KMS**.
+    - Parches, backups, recuperación ante desastres e incidentes sobre estos recursos.
+- **Infraestructura**
+    
+    Directorios:
+    
+    ```
+    k8s/
+    ├── knative/
+    │   ├── prompt-content.yaml
+    │   ├── prompt-ads.yaml
+    │   └── prompt-crm.yaml
+    └── operations/
+        ├── pdb.yaml
+        └── resources-limits.yaml
+    
+    ```
+    
+    Implementación en `k8s/knative/prompt-content.yaml`:
+    
+    ```yaml
+    metadata:
+      name: prompt-content
+      labels:
+        app.kubernetes.io/name: prompt-content
+        app.kubernetes.io/part-of: promptsales
+        env: production
+    ```
+    
+- **Observabilidad integrada**
+    
+    Estructura para monitoreo:
+    
+    ```
+    k8s/
+    └── observability/
+        └── cloudwatch-agent.yaml
+    ```
+    
+    Etiqueta en servicio (`k8s/knative/prompt-ads.yaml`):
+    
+    ```yaml
+    metadata:
+      name: prompt-ads
+      annotations:
+        logs.promptsales.com/forward-to: cloudwatch
+        monitoring.promptsales.com/enabled: "true"
+    ```
+    
+- **Seguridad**
+    
+    Integración con Secrets Manager:
+    
+    ```
+    k8s/
+    ├── external-secrets/
+    │   ├── service-account.yaml
+    │   ├── secret-store.yaml
+    │   └── external-secret.yaml
+    └── eks/
+        └── etct-encryption.yaml
+    ```
+    
+    Los microservicios consumen estos secretos vía variables de entorno en `src/apps/**/server.js` y módulos compartidos (`src/shared/auth/oidc-setup.js`, etc.), mientras que AWS Managed Services administra rotación y políticas sobre Secrets Manager/KMS.
+  
+
+# Guías prácticas por capa (presentation, application, domain, infrastructure)
+
+## Guías de Programación por Capa
 Para la estructura de estas carpetas ver la estructura general del proyecto.
 
 Capas:
