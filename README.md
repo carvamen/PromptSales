@@ -1729,63 +1729,43 @@ class ACLRegistry {
 
 Este patrón nos ayuda a manejar el fallo de errores al hacer llamados a servicios. Evita que se propague un error al retornar errores default.
 
-Se debe crear un ChannelClient por dominio, dentro de estos se debe crear un CircuitBreaker proveniente de [circuitBreakerClient.js](src/shared/http/circuitBreakerClient.js) y se le asigna una cantidad de fallos permitida y el tiempo de recuperación. Ejemplo de [AdsChannelClient.js](src/gateways/rest/AdsChannelClient.js):
+Este patrón está implementado en el layer de proxy, todos los archivos se encuentran en la carpeta [proxy-layer](proxy-layer/).
+Se debe crear un ChannelClient por dominio dentro de la carpeta de [clients](proxy-layer/clients/).
+
+Luego se crea un Proxy para el dominio en la carpeta [proxies](proxy-layer/proxies/). Finalmente se debe agregar al [lambdaHandler.js](proxy-layer/lambdaHandler.js).
 
 ``` javascript
-const axios = require('axios');
-const CircuitBreaker = require('../../shared/http/circuitBreakerClient');
+import { ContentProxy } from './proxies/ContentProxy.js';
 
-const adsCircuitBreaker = new CircuitBreaker({
-  failureThreshold: 3,
-  recoveryTime: 10000,
-});
+const contentProxy = new ContentProxy();
 
-async function getAdsCampaigns() {
-  return adsCircuitBreaker.call(
-    async () => {
-      const response = await axios.get(process.env.ADS_SERVICE_URL + '/api/v1/campaigns');
-      return response.data;
-    },
-    (errorMessage) => {
-      return {
-        campaigns: [],
-        message: 'Fallback: ads service unavailable',
-        error: errorMessage,
-      };
+export const handler = async (event) => {
+  try {
+    const { service, payload } = event;
+
+    switch (service) {
+      case 'crm':
+        return await crmProxy.getCustomer(payload.id);
+      case 'ads':
+        return await adsProxy.getAdCampaign(payload.id);
+      case 'content':
+        return await contentProxy.getContent(payload.id);
+      default:
+        throw new Error(`Unknown service: ${service}`);
     }
-  );
-}
-
-module.exports = { getAdsCampaigns };
-```
-
-Luego se crea el proxy [AdsProxy.js](src/domains/ads/controllers/AdsProxy.js) llamando al cliente que implementa el patrón.
-
-``` javascript
-const { getAdsCampaigns } = require('../../../gateways/rest/AdsChannelClient');
-
-async function fetchCampaigns(req, res) {
-  const data = await getAdsCampaigns();
-  res.json(data);
-}
-
-module.exports = { fetchCampaigns };
-```
-
-Finalmente se debe definir la ruta que tendrá el Proxy en el servidor de la siguiente manera:
-``` javascript
-const express = require('express');
-const bodyParser = require('body-parser');
-const AdsProxy = require('./proxy/AdsProxy');
-
-const app = express();
-app.use(bodyParser.json());
-app.use('/ads', AdsProxy);
+  } catch (err) {
+    console.error('Error:', err.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
+  }
+};
 ```
 
 ### Publisher Subscriber / Producer Consumer / Event Driven
 
-### Throttling
+### Throttling - Cambiar para implementar con Kong
 Controla la cantidad de solicitudes que se reciben en un período de tiempo. Evita sobrecargas y protege contra picos de tráfico no controlados.
 
 Esta configuración se implementa desde el archivo de Terraform para limitar el API Gateway según las especificaciones del caso.
