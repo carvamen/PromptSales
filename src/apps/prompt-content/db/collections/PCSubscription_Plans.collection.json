@@ -1,0 +1,32 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["planId", "name", "price", "createdAt"],
+      "properties": {
+        "planId": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "description": {"bsonType": "string"},
+        "price": {"bsonType": "double"},
+        "currency": {"bsonType": "string"},
+        "billingCycle": {"bsonType": "string", "enum": ["monthly", "quarterly", "annual"]},
+        "status": {"bsonType": "string", "enum": ["active", "discontinued"]},
+        "features": {
+          "bsonType": "array",
+          "description": "Features incluidas en este plan con sus límites",
+          "items": {
+            "bsonType": "object",
+            "required": ["featureId", "limit"],
+            "properties": {
+              "featureId": {"bsonType": "string"},
+              "featureName": {"bsonType": "string"},
+              "limit": {"bsonType": "int", "description": "-1 para ilimitado"}
+            }
+          }
+        },
+        "createdAt": {"bsonType": "date"},
+        "updatedAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

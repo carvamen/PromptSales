@@ -1,0 +1,20 @@
+{
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["campaignId", "name", "description", "createdAt"],
+        "properties": {
+            "campaignId": {"bsonType": "string"},
+            "name": {"bsonType": "string"},
+            "description": {"bsonType": "string"},
+            "targetAudience": {"bsonType": "string"},
+            "campaignMessage": {"bsonType": "string"},
+            "contentVersions": {"bsonType": "array"},
+            "usedImages": {"bsonType": "array"},
+            "status": {"bsonType": "string", "enum": ["draft", "active", "completed", "archived"]},
+            "startDate": {"bsonType": "date"},
+            "endDate": {"bsonType": "date"},
+            "createdAt": {"bsonType": "date"},
+            "updatedAt": {"bsonType": "date"}
+        }
+    }
+}

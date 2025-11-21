@@ -1,0 +1,32 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["clientId", "requestDescription", "hashtags", "deliveryStatus", "format"],
+      "properties": {
+        "mediaId": {"bsonType": "string"},
+        "mediaUrl": {"bsonType": "string"},
+        "fileName": {"bsonType": "string"},
+        "format": {"bsonType": "string"},
+        "size": {"bsonType": "int"},
+        "description": {"bsonType": "string"},
+        "hashtags": {"bsonType": "array"},
+        "category": {"bsonType": "string", "enum": ["social", "ads", "web", "other"]},
+        "platform": {"bsonType": "string", "enum": ["Youtube", "Instagram", "Facebook", "Tiktok", "other"]},
+        "vectorEmbedding": {"bsonType": "array"},
+        "userId": {"bsonType": "string"},
+        "clientId": {"bsonType": "string"},
+        "requestId": {"bsonType": "string"},
+        "requestDescription": {"bsonType": "string"},
+        "campaignId": {"bsonType": "string"},
+        "adId": {"bsonType": "string"},
+        "strategyId": {"bsonType": "string"},
+        "deliveryStatus": {"bsonType": "string", "enum": ["Pending", "Delivered", "Processing"]},
+        "createdAt": {"bsonType": "date"},
+        "updatedAt": {"bsonType": "date"},
+        "usageCount": {"bsonType": "int"},
+        "rights": {"bsonType": "string"}
+      }
+    }
+  }
+}

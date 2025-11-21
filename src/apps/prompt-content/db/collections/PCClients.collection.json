@@ -1,0 +1,46 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["clientId", "email", "name", "createdAt", "status"],
+      "properties": {
+        "clientId": {"bsonType": "string"},
+        "email": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "company": {"bsonType": "string"},
+        "phone": {"bsonType": "string"},
+        "createdAt": {"bsonType": "date"},
+        "updatedAt": {"bsonType": "date"},
+        "status": {"bsonType": "string", "enum": ["active", "inactive", "suspended"]},
+        "subscriptions": {
+          "bsonType": "array",
+          "items": {
+            "bsonType": "object",
+            "properties": {
+              "subscriptionId": {"bsonType": "string"},
+              "planId": {"bsonType": "string"},
+              "planName": {"bsonType": "string"},
+              "status": {"bsonType": "string", "enum": ["active", "paused", "cancelled"]},
+              "startDate": {"bsonType": "date"},
+              "endDate": {"bsonType": "date"},
+              "renewalDate": {"bsonType": "date"},
+              "paymentStatus": {"bsonType": "string", "enum": ["paid", "pending", "failed"]},
+              "usageTracking": {
+                "bsonType": "object",
+                "description": "Rastreo de uso por feature",
+                "additionalProperties": {
+                  "bsonType": "object",
+                  "properties": {
+                    "used": {"bsonType": "int"},
+                    "limit": {"bsonType": "int"},
+                    "resetDate": {"bsonType": "date"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

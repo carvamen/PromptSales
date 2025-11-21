@@ -1,0 +1,37 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["requestId", "clientId", "contentType", "createdAt", "status", "ipAddress", "httpMethod", "requestHeaders", "requestBody"],
+      "properties": {
+        "requestId": {"bsonType": "string"},
+        "clientId": {"bsonType": "string"},
+        "contentType": {"bsonType": "string"},
+        "description": {"bsonType": "string"},
+        "targetAudience": {"bsonType": "string"},
+        "campaignDescription": {"bsonType": "string"},
+        "httpMethod": {"bsonType": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
+        "requestHeaders": {"bsonType": "object"},
+        "requestBody": {"bsonType": "object"},
+        "ipAddress": {"bsonType": "string"},
+        "generatedContent": {
+          "bsonType": "array",
+          "description": "Contenido generado como resultado",
+          "items": {
+            "bsonType": "object",
+            "properties": {
+              "contentId": {"bsonType": "string"},
+              "contentType": {"bsonType": "string"},
+              "url": {"bsonType": "string"},
+              "metadata": {"bsonType": "object"}
+            }
+          }
+        },
+        "status": {"bsonType": "string", "enum": ["pending", "processing", "completed", "failed"]},
+        "createdAt": {"bsonType": "date"},
+        "completedAt": {"bsonType": "date"},
+        "processingTime": {"bsonType": "int"}
+      }
+    }
+  }
+}

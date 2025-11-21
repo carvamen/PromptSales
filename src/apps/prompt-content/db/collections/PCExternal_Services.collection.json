@@ -1,0 +1,22 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["serviceId", "name", "baseUrl", "configuration", "authMethod", "createdAt"],
+      "properties": {
+        "serviceId": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "baseUrl": {"bsonType": "string"},
+        "authMethod": {"bsonType": "string"},
+        "encryptedCredentials": {"bsonType": "string"},
+        "secretKey": {"bsonType": "string"},
+        "apiKey": {"bsonType": "string"},
+        "status": {"bsonType": "string", "enum": ["active", "inactive", "testing"]},
+        "lastTestedAt": {"bsonType": "date"},
+        "createdAt": {"bsonType": "date"},
+        "updatedAt": {"bsonType": "date"},
+        "configuration": {"bsonType": "object"}
+      }
+    }
+  }
+}

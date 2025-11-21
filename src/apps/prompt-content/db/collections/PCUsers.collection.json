@@ -1,0 +1,21 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["userId", "email", "name", "role", "createdAt", "authMethod"],
+      "properties": {
+        "userId": {"bsonType": "string"},
+        "email": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "role": {"bsonType": "string", "enum": ["admin", "marketer", "agent", "client"]},
+        "passwordHash": {"bsonType": "string"},
+        "authMethod": {"bsonType": "string", "enum": ["local", "oauth_google", "oauth_microsoft", "sso"]},
+        "lastPasswordChange": {"bsonType": "date"},
+        "twoFactorEnabled": {"bsonType": "bool"},
+        "createdAt": {"bsonType": "date"},
+        "lastLogin": {"bsonType": "date"},
+        "status": {"bsonType": "string", "enum": ["active", "inactive", "suspended"]}
+      }
+    }
+  }
+}

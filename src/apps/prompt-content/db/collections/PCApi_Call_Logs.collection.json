@@ -1,0 +1,25 @@
+{
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["logId", "serviceId", "timestamp", "request", "response",
+                        "statusCode", "userId", "platform", "ipAddress"],
+        "properties": {
+            "logId": {"bsonType": "string"},
+            "serviceId": {"bsonType": "string"},
+            "endpoint": {"bsonType": "string"},
+            "method": {"bsonType": "string"},
+            "request": {"bsonType": "object"},
+            "response": {"bsonType": "object"},
+            "statusCode": {"bsonType": "int"},
+            "responseTime": {"bsonType": "int"},
+            "result": {"bsonType": "string"},
+            "userId": {"bsonType": "string"},
+            "platform": {"bsonType": "string"},
+            "ipAddress": {"bsonType": "string"},
+            "processType": {"bsonType": "string"},
+            "timestamp": {"bsonType": "date"},
+            "processedAt": {"bsonType": "date"},
+            "errorDetails": {"bsonType": "string"}
+        }
+    }
+}

@@ -1,0 +1,6 @@
+[
+  {"key": {"logId": 1}, "unique": true, "name": "logId_1"},
+  {"key": {"serviceId": 1}, "name": "serviceId_1"},
+  {"key": {"timestamp": -1}, "name": "timestamp_-1"},
+  {"key": {"userId": 1}, "name": "userId_1"}
+]

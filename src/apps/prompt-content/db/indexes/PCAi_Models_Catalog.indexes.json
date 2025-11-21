@@ -1,0 +1,4 @@
+[
+  {"key": {"modelId": 1}, "unique": true, "name": "modelId_1"},
+  {"key": {"name": 1}, "name": "name_1"}
+]

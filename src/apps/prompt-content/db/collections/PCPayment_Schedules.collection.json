@@ -1,0 +1,18 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["scheduleId", "subscriptionId", "amount", "dueDate"],
+      "properties": {
+        "scheduleId": {"bsonType": "string"},
+        "subscriptionId": {"bsonType": "string"},
+        "amount": {"bsonType": "double"},
+        "currency": {"bsonType": "string"},
+        "dueDate": {"bsonType": "date"},
+        "status": {"bsonType": "string", "enum": ["pending", "paid", "overdue", "cancelled"]},
+        "paymentMethodId": {"bsonType": "string"},
+        "createdAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

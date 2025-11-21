@@ -1,0 +1,24 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["logId", "modelId", "timestamp", "input", "output", "userId", "status", "ipAddress"],
+      "properties": {
+        "logId": {"bsonType": "string"},
+        "modelId": {"bsonType": "string"},
+        "versionId": {"bsonType": "string"},
+        "input": {"bsonType": "string"},
+        "output": {"bsonType": "object"},
+        "parameters": {"bsonType": "object"},
+        "userId": {"bsonType": "string"},
+        "ipAddress": {"bsonType": "string"},
+        "processType": {"bsonType": "string"},
+        "timestamp": {"bsonType": "date"},
+        "processingTime": {"bsonType": "int"},
+        "status": {"bsonType": "string"},
+        "mcpServerUsed": {"bsonType": "bool"},
+        "mcpServerName": {"bsonType": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["methodId", "name", "type", "createdAt"],
+      "properties": {
+        "methodId": {"bsonType": "string"},
+        "name": {"bsonType": "string", "enum": ["credit_card", "debit_card", "paypal", "wire_transfer"]},
+        "type": {"bsonType": "string"},
+        "description": {"bsonType": "string"},
+        "isActive": {"bsonType": "bool"},
+        "createdAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

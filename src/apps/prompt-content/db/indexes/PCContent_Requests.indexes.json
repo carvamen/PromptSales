@@ -1,0 +1,8 @@
+[
+  {"key": {"requestId": 1}, "unique": true, "name": "requestId_1"},
+  {"key": {"clientId": 1}, "name": "clientId_1"},
+  {"key": {"createdAt": -1}, "name": "createdAt_-1"},
+  {"key": {"status": 1}, "name": "status_1"},
+  {"key": {"contentType": 1}, "name": "contentType_1"},
+  {"key": {"ipAddress": 1}, "name": "ipAddress_1"}
+]

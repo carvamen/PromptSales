@@ -1,0 +1,8 @@
+[
+  {"key": {"mediaId": 1}, "unique": true, "name": "mediaId_1"},
+  {"key": {"hashtags": 1}, "name": "hashtags_1"},
+  {"key": {"description": "text"}, "name": "description_text"},
+  {"key": {"createdAt": -1}, "name": "createdAt_-1"},
+  {"key": {"clientId": 1}, "name": "clientId_1"},
+  {"key": {"campaignId": 1}, "name": "campaignId_1"}
+]

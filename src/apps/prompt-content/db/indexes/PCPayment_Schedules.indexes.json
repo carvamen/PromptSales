@@ -1,0 +1,5 @@
+[
+  {"key": {"scheduleId": 1}, "unique": true, "name": "scheduleId_1"},
+  {"key": {"subscriptionId": 1}, "name": "subscriptionId_1"},
+  {"key": {"dueDate": 1}, "name": "dueDate_1"}
+]

@@ -1,0 +1,15 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["contentTypeId", "name", "createdAt"],
+      "properties": {
+        "contentTypeId": {"bsonType": "string"},
+        "name": {"bsonType": "string", "enum": ["text", "image", "video", "audio", "carousel", "story"]},
+        "description": {"bsonType": "string"},
+        "supportedPlatforms": {"bsonType": "array"},
+        "createdAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

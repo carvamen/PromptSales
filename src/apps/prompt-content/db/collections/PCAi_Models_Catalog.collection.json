@@ -1,0 +1,25 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["modelId", "name", "provider", "modelEndpoint", "version", "createdAt"],
+      "properties": {
+        "modelId": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "description": {"bsonType": "string"},
+        "provider": {
+          "bsonType": "string",
+          "enum": ["openai", "anthropic", "google", "huggingface", "aws_bedrock", "azure_openai", "custom"]
+        },
+        "baseModel": {"bsonType": "string"},
+        "modelEndpoint": {"bsonType": "string"},
+        "isFineTuned": {"bsonType": "bool"},
+        "fineTunedModelId": {"bsonType": "string"},
+        "fineTunedAt": {"bsonType": "date"},
+        "status": {"bsonType": "string", "enum": ["active", "inactive", "testing"]},
+        "createdAt": {"bsonType": "date"},
+        "updatedAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

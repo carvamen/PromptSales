@@ -1,0 +1,5 @@
+[
+  {"key": {"userId": 1}, "unique": true, "name": "userId_1"},
+  {"key": {"email": 1}, "unique": true, "name": "email_1"},
+  {"key": {"role": 1}, "name": "role_1"}
+]

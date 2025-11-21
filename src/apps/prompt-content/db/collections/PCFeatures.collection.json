@@ -1,0 +1,14 @@
+{
+  "validator": {
+    "$jsonSchema": {
+      "bsonType": "object",
+      "required": ["featureId", "name", "createdAt"],
+      "properties": {
+        "featureId": {"bsonType": "string"},
+        "name": {"bsonType": "string"},
+        "description": {"bsonType": "string"},
+        "createdAt": {"bsonType": "date"}
+      }
+    }
+  }
+}

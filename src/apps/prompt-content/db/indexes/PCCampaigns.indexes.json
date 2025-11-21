@@ -1,0 +1,5 @@
+[
+  {"key": {"campaignId": 1}, "unique": true, "name": "campaignId_1"},
+  {"key": {"createdAt": -1}, "name": "createdAt_-1"},
+  {"key": {"status": 1}, "name": "status_1"}
+]

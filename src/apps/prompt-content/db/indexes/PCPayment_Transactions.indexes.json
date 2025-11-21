@@ -1,0 +1,6 @@
+[
+  {"key": {"transactionId": 1}, "unique": true, "name": "transactionId_1"},
+  {"key": {"subscriptionId": 1}, "name": "subscriptionId_1"},
+  {"key": {"clientId": 1}, "name": "clientId_1"},
+  {"key": {"timestamp": -1}, "name": "timestamp_-1"}
+]
