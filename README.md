@@ -1367,7 +1367,7 @@ spec:
 **Dominios especializados en publicidad y campañas:**
 - **Campañas**
 - **Audiencias** 
-- **Analítica** 
+- **Analítica de Anuncios** 
 - **Finanzas**
 - **Influencers**
 - **Organizaciones** 
