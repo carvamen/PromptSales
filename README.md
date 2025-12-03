@@ -3,194 +3,374 @@ PromptSales - Ecosistema de Marketing con IA
 
 **Estructura del proyecto**
 ```
-.
-├── README.md
-├── assets/
-│   ├── Diagrama-Arquitectura.png
-│   └── DDD-DataFlow.svg
-├── contracts/
-│   ├── rest/
-│   │   ├── identity-openapi.yaml
-│   │   ├── subscription-openapi.yaml
-│   │   ├── payment-openapi.yaml
-│   │   ├── ads-openapi.yaml
-│   │   ├── content-openapi.yaml
-│   │   └── crm-openapi.yaml
-│   └── mcp/
-│       ├── ads-orchestrator.json
-│       ├── content-tools.json
-│       └── crm-automation.json
-├── webhooks/
-│   ├── topics.md
-│   └── schemas/
-│       ├── crm.lead.created.json
-│       └── ads.campaign.created.json
-├── compliance/
-│   ├── owasp/
-│   │   ├── dast-report-latest.md
-│   │   └── sast-report-latest.md
-│   ├── gdpr/
+│
+├── 📄 README.md
+│
+├── 🖼️ assets/
+│   ├── DDD-DataFlow.svg
+│   ├── Diagrama-Arquitectura.svg
+│   └── DiagramaDeArquitectura.pdf
+│
+├── 📋 compliance/
+│   ├── 📊 gdpr/
 │   │   ├── data-map.md
-│   │   ├── retention-policy.md
-│   │   └── dsr-procedure.md
-│   └── payments/
+│   │   ├── dsr-procedure.md
+│   │   └── retention-policy.md
+│   │
+│   ├── 🛡️ owasp/
+│   │   ├── dast-report.latest.md
+│   │   └── sast-report-latest.md
+│   │
+│   └── 💳 payments/
 │       ├── psp-list.md
 │       └── webhook-signing.md
-├── k8s/
-│   ├── knative/
-│   │   ├── kubernetes-config.yaml
-│   │   ├── prompt-content.yaml
-│   │   ├── prompt-ads.yaml
-│   │   └── prompt-crm.yaml
-│   ├── api-gateway/           # ← NUEVO
+│
+├── 📑 contracts/
+│   ├── 🤖 mcp/
+│   │   ├── ads-orchestrator.json
+│   │   ├── content-tools.json
+│   │   ├── crm-automation.json
+│   │   └── newdomain.json
+│   │
+│   └── 🌐 rest/
+│       ├── ads-openapi.yaml
+│       ├── content.openapi.yaml
+│       ├── identity-openapi.yaml
+│       ├── payment-openapi.yaml
+│       └── subscription-openapi.yaml
+│
+├── ☸️ k8s/
+│   ├── 🚪 api-gateway/
+│   │   ├── kong-config.yaml
 │   │   ├── kong-deployment.yaml
-│   │   ├── kong-routes.yaml
-│   │   └── kong-plugins.yaml
-│   ├── irsa/
-│   │   ├── oidc-provider.yaml
-│   │   └── iam-roles.yaml
-│   ├── ingress/
-│   │   └── alb-tls13.yaml
-│   ├── external-secrets/
-│   │   ├── service-account.yaml
+│   │   ├── kong-plugins.yaml
+│   │   └── kong-routes.yaml
+│   │
+│   ├── ⚙️ eks/
+│   │   ├── eksctl-cluster.yaml
+│   │   ├── etcd-encryption.yaml
+│   │   └── prompt-ads.yaml
+│   │
+│   ├── 🔐 external-secrets/
+│   │   ├── external-secret.yaml
 │   │   ├── secret-store.yaml
-│   │   └── external-secret.yaml
-│   ├── eks/
-│   │   └── etcd-encryption.yaml
-│   ├── sqlserver/
-│   │   └── sqlserver-connection.json
-│   ├── mongodb/
+│   │   └── service-account.yaml
+│   │
+│   ├── 🌐 ingress/
+│   │   └── alb-tls13.yaml
+│   │
+│   ├️── ⚡ knative/
+│   │   ├── identidad.yaml
+│   │   ├── kubernetes-config.yaml
+│   │   ├── pagos.yaml
+│   │   └── suscripciones.yaml
+│   │
+│   ├── 🍃 mongodb/
 │   │   └── mongo-connection.json
-│   └── redis/
-│       └── elasticache-redis.yaml
-├── infrastructure/
-│   └── aws/
-│       └── api-gateway-scaling.tf
-└── src/
-    ├── shared/
-    │   ├── auth/
-    │   │   ├── oidc-setup.js          
-    │   │   └── middleware.js         
-    │   ├── http/
-    │   │   ├── errors.js
-    │   │   ├── circuitBreakerClient.js
-    │   │   └── idempotency.js
-    │   ├── observability/
-    │   │   ├── logger.js
-    │   │   └── tracing.js
-    │   ├── acl/
-    │   │   └── ACLRegistry.js
-    │   ├── contracts/
-    │   │   └── BaseVersionedContract.js
-    │   ├── security/
-    │   │   ├── validators.js
-    │   │   ├── requireScope.js
-    │   │   ├── rate-limit.js
-    │   │   └── allowlist.js
-    │   └── utils/
-    ├── gateways/
-    │   ├── rest/
-    │   │   ├── MetaAdsClient.js
-    │   │   └── AdsChannelClient.js
-    │   ├── mcp/
-    │   │   └── AdsOrchestratorClient.js
-    │   └── webhooks/
-    │       ├── verifySignature.js
-    │       └── receiver.js
-    ├── infrastructure/
-    │   ├── sql/
-    │   │   └── SqlCampaignRepo.js
-    │   ├── s3/
-    │   │   └── S3Client.js
-    │   └── cache/
-    │       └── redisClient.js
-    ├── domains/
-    │   ├── identity/
-    │   │   ├── contracts/
-    │   │   │   └── IdentityContract.js
-    │   │   ├── acl/
-    │   │   │   └── IdentityACL.js
-    │   │   └── controllers/
-    │   │       ├── UserProfileController.js
-    │   │       ├── AuthenticationController.js
-    │   │       └── LoginController.js
-    │   ├── subscriptions/
-    │   │   ├── contracts/
-    │   │   │   ├── SubscriptionContractFactory.js
-    │   │   │   ├── SubscriptionContractMapper.js
-    │   │   │   ├── versions/
-    │   │   │   │   ├── v1/
-    │   │   │   │   │   └── SubscriptionContractV1.js
-    │   │   │   │   ├── v2/
-    │   │   │   │   │   └── SubscriptionContractV2.js
-    │   │   │   │   ├── v3/
-    │   │   │   │   │   └── SubscriptionContractV3.js
-    │   │   │   │   └── v4/
-    │   │   │   │       └── SubscriptionContractV4.js
-    │   │   │   └── SubscriptionContract.js
-    │   │   ├── controllers/
-    │   │   │   └── SubscriptionRenewalController.js
-    │   │   └── acl/
-    │   │       └── SubscriptionACL.js
-    │   ├── payments/
-    │   │   ├── contracts/
-    │   │   │   └── PaymentContract.js
-    │   │   ├── controllers/
-    │   │   │   ├── InvoiceController.js
-    │   │   │   ├── PaymentController.js
-    │   │   │   └── RefundController.js
-    │   │   └── acl/
-    │   │       └── PaymentACL.js
-    │   ├── ads/
-    │   │   ├── contracts/
-    │   │   └── controllers/
-    │   │       ├── CampaignController.js
-    │   │       ├── AudienceController.js
-    │   │       ├── AdsProxy.js
-    │   │       └── PolicyController.js
-    │   ├── content/
-    │   │   └── controllers/
-    │   │       ├── ContentController.js
-    │   │       └── AssetController.js
-    │   ├── crm/
-    │   │   └── controllers/
-    │   │       ├── LeadController.js
-    │   │       ├── ConversationController.js
-    │   │       └── OpportunityController.js
-    │   ├── analytics/
-    │   ├── notifications/
-    │   ├── approvals/
-    │   ├── agenda/
-    │   ├── integrations/
-    │   ├── ia/
-    │   │   ├── controllers/
-    │   │   │   └── AsyncIAController.js
-    │   │   ├── services/
-    │   │   │   └── AsyncIAService.js
-    │   │   └── acl/
-    │   │       └── IAACL.js
-    │   ├── cache/
-    │   ├── audit-events/
-    │   ├── clients-products/
-    │   ├── social/
-    │   └── messaging-multicanal/
-    ├── presentation/
-    │   └── fetchClient.js
-    ├── apps/
-    │   ├── prompt-content/
-    │   │   └── server.js
-    │   ├── prompt-ads/
-    │   │   ├── routes.js
-    │   │   ├── wiring/
-    │   │   │   └── subscriptions.js
-    │   │   ├── proxy/
-    │   │   │   └── AdsProxy.js
-    │   │   └── server.js
-    │   └── prompt-crm/
-    │       └── server.js
-    └── jest/
-        ├── AdsRoutes.test.js
-        └── SubscriptionTests.js
+│   │
+│   ├── 🗃️ redis/
+│   │   └── elasticache-redis.yaml
+│   │
+│   └── 🗄️ sqlserver/
+│       └── sqlserver-connection.json
+│
+├── 🔄 proxy-layer/
+│   ├── 📄 package.json
+│   ├── 🔧 lambdaHandler.js
+│   │
+│   ├── 📡 clients/
+│   │   ├── AdsChannelClient.js
+│   │   ├── ContentChannelClient.js
+│   │   └── CRMChannelClient.js
+│   │
+│   ├── 🔌 proxies/
+│   │   ├── AdsProxy.js
+│   │   ├── ContentProxy.js
+│   │   └── CRMProxy.js
+│   │
+│   └── 🛠️ utils/
+│       ├── CircuitBreaker.js
+│       └── RedisClient.js
+│
+├── 💻 src/
+│   ├── 🚀 apps/
+│   │   ├── 🎯 prompt-ads/
+│   │   │   ├── 📄 routes.js
+│   │   │   ├── 📄 server.js
+│   │   │   │
+│   │   │   ├── 🗄️ db/
+│   │   │   │   ├── 📄 sequlize-config.js
+│   │   │   │   ├── 📄 sql-server-connection.js
+│   │   │   │   │
+│   │   │   │   ├── 📋 schema/
+│   │   │   │   │   └── promptads_schema.sql
+│   │   │   │   │
+│   │   │   │   ├── 📜 scripts/
+│   │   │   │   │   ├── test-repository-orm-reader.js
+│   │   │   │   │   ├── test-repository-orm-writer.js
+│   │   │   │   │   ├── test-repository-reader.js
+│   │   │   │   │   └── test-repository-writer.js
+│   │   │   │   │
+│   │   │   │   └── 🌱 seed/
+│   │   │   │       └── initial_data.sql
+│   │   │   │
+│   │   │   ├── 📁 src/
+│   │   │   │   └── 🏷️ models/
+│   │   │   │       ├── Campaign.js
+│   │   │   │       └── Subscription.js
+│   │   │   │
+│   │   │   └── 🧪 __tests__/
+│   │   │       └── ads.routes.test.js
+│   │   │
+│   │   ├── 📝 prompt-content/
+│   │   │   ├── 📄 server.js
+│   │   │   │
+│   │   │   ├── 🗄️ db/
+│   │   │   │   ├── 📂 collections/
+│   │   │   │   │   ├── collectionscreate.js
+│   │   │   │   │   ├── PCAi_Models_Catalog.collection.json
+│   │   │   │   │   ├── PCAi_Model_Logs.collection.json
+│   │   │   │   │   ├── PCApi_Call_Logs.collection.json
+│   │   │   │   │   ├── PCCampaigns.collection.json
+│   │   │   │   │   ├── PCClients.collection.json
+│   │   │   │   │   ├── PCContent_Requests.collection.json
+│   │   │   │   │   ├── PCContent_Types.collection.json
+│   │   │   │   │   ├── PCExternal_Services.collection.json
+│   │   │   │   │   ├── PCFeatures.collection.json
+│   │   │   │   │   ├── PCmedia.collection.json
+│   │   │   │   │   ├── PCPayment_Methods.collection.json
+│   │   │   │   │   ├── PCPayment_Schedules.collection.json
+│   │   │   │   │   ├── PCPayment_Transactions.collection.json
+│   │   │   │   │   ├── PCSubscription_Plans.collection.json
+│   │   │   │   │   └── PCUsers.collection.json
+│   │   │   │   │
+│   │   │   │   ├── 📊 indexes/
+│   │   │   │   │   ├── PCAi_Models_Catalog.indexes.json
+│   │   │   │   │   ├── PCAi_Model_Logs.indexes.json
+│   │   │   │   │   ├── PCApi_Call_Logs.indexes.json
+│   │   │   │   │   ├── PCCampaigns.indexes.json
+│   │   │   │   │   ├── PCClients.indexes.json
+│   │   │   │   │   ├── PCContent_Requests.indexes.json
+│   │   │   │   │   ├── PCContent_Types.indexes.json
+│   │   │   │   │   ├── PCExternal_Services.indexes.json
+│   │   │   │   │   ├── PCFeatures.indexes.json
+│   │   │   │   │   ├── PCmedia.indexes.json
+│   │   │   │   │   ├── PCPayment_Methods.indexes.json
+│   │   │   │   │   ├── PCPayment_Schedules.indexes.json
+│   │   │   │   │   ├── PCPayment_Transactions.indexes.json
+│   │   │   │   │   ├── PCSubscription_Plans.indexes.json
+│   │   │   │   │   └── PCUsers.indexes.json
+│   │   │   │   │
+│   │   │   │   └── 📜 scripts/
+│   │   │   │       └── init-database.js
+│   │   │   │
+│   │   │   └── 👷 workers/
+│   │   │       └── ia-worker.js
+│   │   │
+│   │   └── 👥 prompt-crm/
+│   │       └── server.js
+│   │
+│   ├── 🏗️ domains/
+│   │   ├── 🎯 ads/
+│   │   │   ├── campaign.entity.js
+│   │   │   └── campaign.service.js
+│   │   │
+│   │   ├── 📝 content/
+│   │   │   └── 🎮 controllers/
+│   │   │       └── ContentController.js
+│   │   │
+│   │   ├── 🧠 ia/
+│   │   │   ├── 🔐 acl/
+│   │   │   │   ├── AIACL.js
+│   │   │   │   ├── AIACL2.js
+│   │   │   │   └── IAACL.js
+│   │   │   │
+│   │   │   ├── 📑 contracts/
+│   │   │   │   ├── AIAsyncContractFactory.js
+│   │   │   │   ├── IAContractFactory.js
+│   │   │   │   │
+│   │   │   │   └── 🔄 versions/
+│   │   │   │       ├── v1/
+│   │   │   │       │   ├── AIAsyncContractV1.js
+│   │   │   │       │   ├── AiContractV1.js
+│   │   │   │       │   └── IAContractV1.js
+│   │   │   │       │
+│   │   │   │       └── v2/
+│   │   │   │           └── AIAsyncContractV2.js
+│   │   │   │
+│   │   │   ├── 🎮 controllers/
+│   │   │   │   ├── AsyncIAController.js
+│   │   │   │   ├── IACallbackController.js
+│   │   │   │   └── IAController.js
+│   │   │   │
+│   │   │   ├── 🏷️ models/
+│   │   │   │   └── IATask.js
+│   │   │   │
+│   │   │   ├── 💾 repositories/
+│   │   │   │   └── AIRequestRepository.js
+│   │   │   │
+│   │   │   ├── ⚙️ services/
+│   │   │   │   └── AsyncIAService.js
+│   │   │   │
+│   │   │   └── 👷 workers/
+│   │   │       ├── IAWorker.js
+│   │   │       └── PromptWorker.js
+│   │   │
+│   │   ├── 👤 identity/
+│   │   │   ├── 📑 contracts/
+│   │   │   │   └── IdentityContract.js
+│   │   │   │
+│   │   │   ├── 🎮 controllers/
+│   │   │   │   ├── AuthenticationController.js
+│   │   │   │   ├── LoginController.js
+│   │   │   │   └── UserProfileController.js
+│   │   │   │
+│   │   │   ├── 🏷️ entities/
+│   │   │   │   ├── Role.js
+│   │   │   │   ├── User.js
+│   │   │   │   └── UserProfile.js
+│   │   │   │
+│   │   │   └── 💾 repositories/
+│   │   │       ├── UserProfileRepository.js
+│   │   │       ├── UserRepository.js
+│   │   │       │
+│   │   │       └── 🎭 interfaces/
+│   │   │           └── IUserRepository.js
+│   │   │
+│   │   ├── 💳 payments/
+│   │   │   ├── 📑 contracts/
+│   │   │   │   └── PaymentContract.js
+│   │   │   │
+│   │   │   └── 🎮 controllers/
+│   │   │       ├── InvoiceController.js
+│   │   │       ├── PaymentController.js
+│   │   │       └── RefundController.js
+│   │   │
+│   │   └── 📅 subscriptions/
+│   │       ├── 🔐 acl/
+│   │       │   └── SubscriptionACL.js
+│   │       │
+│   │       ├── 📑 contracts/
+│   │       │   ├── SubscriptionContractFactory.js
+│   │       │   ├── SubscriptionContractMapper.js
+│   │       │   │
+│   │       │   └── 🔄 versions/
+│   │       │       ├── v1/
+│   │       │       │   └── SubscriptionContractV1.js
+│   │       │       │
+│   │       │       ├── v2/
+│   │       │       │   └── SubscriptionContractV2.js
+│   │       │       │
+│   │       │       └── v3/
+│   │       │           └── SubscriptionContractV3.js
+│   │       │
+│   │       ├── 🎮 controllers/
+│   │       │   ├── SubscriptionsAcquisitionController.js
+│   │       │   ├── SubscriptionsCancellationController.js
+│   │       │   └── SubscriptionsRenewalController.js
+│   │       │
+│   │       ├── 🏷️ entities/
+│   │       │   ├── BillingCycle.js
+│   │       │   ├── Plan.js
+│   │       │   └── Subscription.js
+│   │       │
+│   │       ├── 💾 repositories/
+│   │       │   ├── PlanRepository.js
+│   │       │   ├── SubscriptionRepository.js
+│   │       │   │
+│   │       │   └── 🎭 interfaces/
+│   │       │       └── ISubscriptionRepository.js
+│   │       │
+│   │       └── ⚙️ services/
+│   │           └── SubscriptionActualizationService.js
+│   │
+│   ├── 🌉 gateways/
+│   │   ├── 🤖 mcp/
+│   │   │   ├── AdsOrchestratorClient.js
+│   │   │   └── MessageBusClient.js
+│   │   │
+│   │   ├── 📨 messaging/
+│   │   │   └── publisher.js
+│   │   │
+│   │   └── 🪝 webhooks/
+│   │       ├── receiver.js
+│   │       └── verifySignature.js
+│   │
+│   ├── 🏗️ infrastructure/
+│   │   ├── 🗃️ cache/
+│   │   │   └── redisClient.js
+│   │   │
+│   │   ├── 💾 repositories/
+│   │   │   ├── CampaignRepositoryORM.js
+│   │   │   ├── CampaignRepositorySP.js
+│   │   │   └── SubscriptionRepositoryORM.js
+│   │   │
+│   │   ├── 🌐 rest/
+│   │   │   └── MetaAdsClient.js
+│   │   │
+│   │   ├── ☁️ s3/
+│   │   │   └── S3Client.js
+│   │   │
+│   │   └── 🗄️ sql/
+│   │       └── SqlCampaignRepo.js
+│   │
+│   ├── 🔗 integration/
+│   │   └── setup.js
+│   │
+│   ├── 🧪 jest/
+│   │   └── SubscriptionTests.js
+│   │
+│   ├── 🎨 presentation/
+│   │   └── fetchClient.js
+│   │
+│   └── 🔗 shared/
+│       ├── 📄 ACLRegistry.js
+│       │
+│       ├── 🔐 acl/
+│       │   ├── ACLRegistry.js
+│       │   └── BaseACL.js
+│       │
+│       ├── 🔑 auth/
+│       │   ├── middleware.js
+│       │   └── oidc-setup.js
+│       │
+│       ├── ☁️ aws/
+│       │   ├── dependencies.js
+│       │   └── SQSService.js
+│       │
+│       ├── 📑 contracts/
+│       │   ├── BaseContract.js
+│       │   └── BaseVersionedContract.js
+│       │
+│       ├── 🌐 http/
+│       │   ├── circuitBreakerClient.js
+│       │   ├── circuitBreakerRedis.js
+│       │   ├── errors.js
+│       │   └── idempotency.js
+│       │
+│       ├── ⏰ jobs/
+│       │   └── JobStore.js
+│       │
+│       ├── 📊 observability/
+│       │   ├── logger.js
+│       │   └── tracing.js
+│       │
+│       └── 🛡️ security/
+│           ├── allowlist.js
+│           ├── callbackSigner.js
+│           ├── rate-limit.js
+│           ├── requireScope.js
+│           └── validators.js
+│
+├── 🌐 web/
+│   └── vercel.json
+│
+└── 🪝 webhooks/
+    ├── 📄 topics.md
+    │
+    └── 📋 schemas/
+        ├── ads.campaign.created.json
+        └── crm.lead.created.json
 
 
 ```
@@ -1186,11 +1366,11 @@ spec:
 #### PromptAds
 **Dominios especializados en publicidad y campañas:**
 - **Campañas**
-- **Anuncios** 
 - **Audiencias** 
-- **Redes Sociales** 
 - **Analítica** 
-- **Políticas de Plataforma** 
+- **Finanzas**
+- **Influencers**
+- **Organizaciones** 
 
 #### PromptCRM
 **Dominios especializados en gestión de relaciones con clientes:**
@@ -2754,13 +2934,103 @@ module.exports = ACLRegistry;
 3. Actualizar tests que dependan de la versión del contrato.
 
 
-## Notas rápidas + Checklist por PR
 
-**Notas rápidas**
-- PUBLIC/INTERNAL/ADMIN deben respetar la matriz de seguridad.
-- INTERNAL siempre con **JWT m2m + ipAllowlist + rate-limit interno**.
-- Mutaciones críticas: header **Idempotency-Key** obligatorio.
-- Clientes REST externos con **circuit breaker + timeout**.
-- **S3** lo leen/escriben **servicios** (no repos de dominio); usar **AES256** server-side.
-- Redis con **TLS** habilitado; no guardar **PII**.
-- **Audience** de Auth0 por microservicio.
+Como inicar mongo: 
+
+# Instalar dependencia (si no la tienes)
+npm install mongodb
+
+# Ejecutar el script
+node init-mongodb.js
+
+/apps/prompt-content/
+├── db/
+│   ├── collections/
+│   │   ├── PCUsers.collection.json
+│   │   ├── PCExternal_Services.collection.json
+│   │   ├── PCApi_Call_Logs.collection.json
+│   │   ├── PCAi_Models_Catalog.collection.json
+│   │   ├── PCAi_Model_Logs.collection.json
+│   │   ├── PCContent_Types.collection.json
+│   │   ├── PCmedia.collection.json
+│   │   ├── PCContent_Requests.collection.json
+│   │   ├── PCClients.collection.json
+│   │   ├── PCSubscription_Plans.collection.json
+│   │   ├── PCFeatures.collection.json
+│   │   ├── PCPayment_Methods.collection.json
+│   │   ├── PCPayment_Schedules.collection.json
+│   │   ├── PCPayment_Transactions.collection.json
+│   │   └── PCCampaigns.collection.json
+│   ├── indexes/
+│   │   ├── PCUsers.indexes.json
+│   │   ├── PCExternal_Services.indexes.json
+│   │   ├── PCApi_Call_Logs.indexes.json
+│   │   ├── PCAi_Models_Catalog.indexes.json
+│   │   ├── PCAi_Model_Logs.indexes.json
+│   │   ├── PCContent_Types.indexes.json
+│   │   ├── PCmedia.indexes.json
+│   │   ├── PCContent_Requests.indexes.json
+│   │   ├── PCClients.indexes.json
+│   │   ├── PCSubscription_Plans.indexes.json
+│   │   ├── PCFeatures.indexes.json
+│   │   ├── PCPayment_Methods.indexes.json
+│   │   ├── PCPayment_Schedules.indexes.json
+│   │   ├── PCPayment_Transactions.indexes.json
+│   │   └── PCCampaigns.indexes.json
+│   └── seeds/
+│       ├── PCUsers.samples.json
+│       ├── PCContent_Types.samples.json
+│       ├── PCFeatures.samples.json
+│       └── PCSubscription_Plans.samples.json
+└── scripts/
+    ├── init-database.js
+    ├── migrate-collection.js
+    └── seed-data.js
+
+
+
+SPS: 
+'''sql
+-- Conectar a la base promptads
+USE promptads;
+GO
+
+-- SP de Escritura
+CREATE OR ALTER PROCEDURE usp_Campaign_Create
+    @IdOrganization INT,
+    @Name VARCHAR(60),
+    @Description VARCHAR(200),
+    @IdCity INT,
+    @StartsAt DATE,
+    @EndsAt DATE,
+    @IdCampaignStatus TINYINT = 1
+AS
+BEGIN
+    INSERT INTO PACampaigns (
+        IdOrganization, name, description, IdCity, 
+        createdAt, startsAt, endsAt, IdCampaignStatus, deleted
+    )
+    VALUES (
+        @IdOrganization, @Name, @Description, @IdCity,
+        GETDATE(), @StartsAt, @EndsAt, @IdCampaignStatus, 0
+    );
+    
+    SELECT SCOPE_IDENTITY() as NewCampaignId;
+END
+GO
+
+-- SP de Lectura
+CREATE OR ALTER PROCEDURE usp_Campaign_GetById
+    @CampaignId INT
+AS
+BEGIN
+    SELECT 
+        c.IdCampaign, c.name, c.description, c.IdCity,
+        c.createdAt, c.startsAt, c.endsAt, c.IdCampaignStatus,
+        o.name as OrganizationName
+    FROM PACampaigns c
+    INNER JOIN PAOrganizations o ON c.IdOrganization = o.IdOrganization
+    WHERE c.IdCampaign = @CampaignId AND c.deleted = 0;
+END
+GO
+'''
