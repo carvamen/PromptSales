@@ -1340,7 +1340,9 @@ spec:
 
 - **Identidad** 
 - **Suscripciones** 
-- **Pagos** 
+- **Billing & Payments** 
+- **Clientes y Organizaciones** 
+- **Productos y Catálogo**
 - **Almacenamiento**
 - **Integraciones** 
 - **Analítica**
@@ -1350,7 +1352,8 @@ spec:
 - **IA** 
 - **Cache** 
 - **Auditoría y Eventos** 
-- **Clientes y Productos** 
+- **Mensajería Multicanal** 
+
 - **Redes Sociales** 
 - **Mensajería Multicanal** 
 
