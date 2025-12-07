@@ -1,40 +1,51 @@
-const CampaignRepositoryORM = require('../../../../infrastructure/repositories/CampaignRepositoryORM');
+const SubscriptionRepositoryORM = require('../../../../infrastructure/repositories/SubscriptionRepositoryORM');
 const { sequelize } = require('../sequlize-config');
 
-async function testORMReader() {
-  console.log('📖 TESTEANDO LECTURA CON ORM (SEQUELIZE)...\n');
+async function testSubscriptionReader() {
+  console.log('📖 TESTEANDO LECTURA CON ORM - SUBSCRIPTIONS\n');
   
-  const repository = new CampaignRepositoryORM();
+  const repository = new SubscriptionRepositoryORM();
   
   try {
     await sequelize.authenticate();
     console.log('✅ Conectado a la BD con Sequelize\n');
     
-    const campaignId = process.argv[2] || 1;
-    console.log(`🔍 Buscando campaña ID: ${campaignId} con ORM\n`);
+    // 1. Leer todas las subscriptions
+    console.log('1. Probando FIND ALL...');
+    const allSubscriptions = await repository.findAll();
     
-    console.log('1. Probando FIND BY ID...');
-    const campaign = await repository.findById(campaignId);
+    console.log(`\n TOTAL SUBSCRIPTIONS: ${allSubscriptions.length}`);
+    allSubscriptions.forEach(sub => {
+      console.log(`   ID: ${sub.IdSubscription} | ${sub.name} - ${sub.description}`);
+    });
     
-    if (campaign) {
-      console.log('✅ LECTURA CON ORM EXITOSA!');
-      console.log(`   ID: ${campaign.IdCampaign}`);
-      console.log(`   Nombre: ${campaign.name}`);
-      console.log(`   Descripción: ${campaign.description}`);
-      console.log(`   Creado: ${campaign.createdAt}`);
-    } else {
-      console.log('❌ Campaña no encontrada con ORM');
+    // 2. Leer una subscription específica
+    if (allSubscriptions.length > 0) {
+      const firstId = allSubscriptions[0].IdSubscription;
+      console.log(`\n2. Probando FIND BY ID (ID: ${firstId})...`);
+      
+      const singleSubscription = await repository.findById(firstId);
+      if (singleSubscription) {
+        console.log('      SUBSCRIPTION ENCONTRADA:');
+        console.log(`      ID: ${singleSubscription.IdSubscription}`);
+        console.log(`      Nombre: ${singleSubscription.name}`);
+        console.log(`      Descripción: ${singleSubscription.description}`);
+      }
     }
     
-    console.log('\n2. Probando FIND BY ORGANIZATION...');
-    const orgCampaigns = await repository.findByOrganization(1);
-    console.log(`✅ Encontradas ${orgCampaigns.length} campañas con ORM`);
+    // 3. Probar con ID que no existe
+    console.log('\n3. Probando FIND BY ID con ID inexistente...');
+    const notFound = await repository.findById(9999);
+    if (!notFound) {
+      console.log('    Comportamiento correcto - Subscription no encontrada');
+    }
     
   } catch (error) {
-    console.error('❌ ERROR EN ORM:', error.message);
+    console.error(' ERROR GENERAL:', error.message);
   } finally {
     await sequelize.close();
+    console.log('\n Conexión cerrada');
   }
 }
 
-testORMReader();
+testSubscriptionReader();

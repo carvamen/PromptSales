@@ -7,7 +7,7 @@ async function testReader() {
     
     try {
         // Pedir el ID a probar (puedes cambiarlo manualmente)
-        const campaignId = process.argv[2] || 1;
+        const campaignId = 2103;
         console.log(`🔍 Buscando campaña con ID: ${campaignId}\n`);
         
         console.log('1. Probando FIND BY ID...');
@@ -25,6 +25,8 @@ async function testReader() {
             console.log(' Campaña no encontrada');
             console.log(' Ejecuta primero el test de escritura para crear datos');
         }
+
+        return;
         
     } catch (error) {
         console.error('❌ ERROR EN LECTURA:', error.message);
