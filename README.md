@@ -1374,161 +1374,84 @@ spec:
 
 ![Ejemplo de llamadas cross-domain](assets/DDD-DataFlow.svg)
 
-## 2.3 Estructura base de dominios
+## 2.3 Estructura Base de Dominios (Arquitectura por Subempresas / Bounded Contexts)
+Tras la reestructuración completa del proyecto PromptSales, adoptamos un enfoque en el que cada subempresa del ecosistema funciona como un bounded context independiente, y dentro de cada uno viven sus propios dominios internos (Campaigns, Subscriptions, Leads, Templates, etc.).
 
-### Qué contiene cada dominio
+Este modelo reemplaza la propuesta inicial basada en un único macro‑dominio y es más coherente con DDD aplicado a microservicios modernos, aumentando la claridad, autonomía y escalabilidad.
 
-1. controllers/: casos de uso expuestos al app server (rutas HTTP).
+### Qué contiene cada Bounded Context (subempresa)
+Cada subempresa ubicada en src/apps/<"subempresa">/ constituye un bounded context completo, y por tanto incluye:
 
-2. contracts/: interfaces del dominio (REST/MCP) para ser consumidas por otros dominios.
+1. controllers/: 
+  Contienen los casos de uso expuestos al App Server (rutas HTTP).
 
-3. acl/: façade para consumir contratos de otros dominios sin filtrar modelos externos al interno.
+2. contracts/: 
+  Definen las interfaces del BC hacia otros servicios (REST/OpenAPI).
+  Representan los contratos estables que otros microservicios consumen.
 
-### Carpetas
+3. acl/: 
+  Implementan el Anti‑Corruption Layer:
+  encapsulan las llamadas a otros microservicios para evitar que modelos externos contaminen el dominio interno.
 
-[src/domains/](src/domains)
+4. clients/:
+  Contienen los clients HTTP preparados para consumir los contratos REST de otros servicios.
+  Son usados exclusivamente por los ACL.
 
-1. src/domains/\<newdomain>/controllers/
+Este patrón se replica en cada subempresa: Ads, CRM, Content, etc.
 
-2. src/domains/\<newdomain>/contracts/
+### Estructura de Carpetas
+#### Cada bounded context sigue la estructura:
 
-3. src/domains/\<newdomain>/acl/ (si consume otros)
+```markdown
+src/apps/<subempresa>/
+    server.js
+    routes.js
 
-4. Rutas en src/apps/\<subempresaquecorresponde>/server.js 
+    acl/
+        <NombreACL>.js
 
-[src/Apps/prompt-ads/server.js](src/apps/prompt-ads/server.js)
-``` javascript
-// server.js (ejemplo)
+    clients/
+        <NombreClient>.js
+
+    contracts/
+        <NombreContract>.js
+
+    domains/
+        controllers/
+        services/
+        models/
+        infrastructure/
+            repositories/
+```
+
+### Flujo de Datos Dentro de un Bounded Context
+1. El cliente externo realiza una solicitud HTTP.
+2. routes.js la dirige al controlador adecuado.
+3. El controlador usa los services internos.
+4. Los services pueden usar:
+- repositorios internos (ORM/SP/Redis/etc.)
+- ACLs (para llamar a otros BC vía HTTP)
+
+### Server y Rutas dentro de un Bounded Contex
+```javascript
+// server.js
 import express from "express";
 import { requireAuth } from "../../shared/auth/middleware.js";
-import { SubscriptionRenewalController } from "../../domains/subscriptions/controllers/SubscriptionRenewalController.js";
-import { buildSubscriptionACL } from "./wiring/subscriptions.js"; // cableado de clients/mapper
+
+import { CampaignController } from "./domains/controllers/CampaignController.js";
+import { buildSubscriptionACL } from "./acl/wiring/subscriptions.js";
 
 const app = express();
 app.use(express.json());
 
-const renewal = SubscriptionRenewalController({ acl: buildSubscriptionACL() });
-app.post("/subscriptions/renew", requireAuth, renewal.renew);
+const controller = CampaignController({
+    subscriptionsACL: buildSubscriptionACL()
+});
+
+app.post("/campaigns/create", requireAuth, controller.create);
 
 export default app;
 ```
-
-5. Gateways: usa gateways/rest/* o gateways/mcp/* para crear los clients HTTP/MCP de cada contract.
-
-6. Shared: registra Idempotency-Key [src/shared/http/idempotency.js](src/shared/http/idempotency.js), logs [src/shared/observability/logger.js](src/shared/observability/logger.js) y trazas [src/shared/observability/tracing.js](src/shared/observability/tracing.js).
-
-7. Todos los tests deben hacerse a los acl, como el ejemplo de subscription:
-![SubscriptionTests.js](/src/jest/SubscriptionTests.js)
-
-## API Gateway & Routing
-
-Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gateway/`
-
-**Routing Map:**
-- `/api/content/*` → PromptContent Microservice
-- `/api/ads/*` → PromptAds Microservice  
-- `/api/crm/*` → PromptCRM Microservice
-
-**Features:**
-- Autenticación JWT centralizada
-- CORS management  
-- Logging y métricas
-
-### Variables a definir durante implementación:
-
-#### Service URLs
-- `[NAMESPACE]`: Namespace de Kubernetes donde se despliegan los microservicios
-- `[PORT]`: Puerto interno de cada microservicio
-
-#### Paths Routing  
-- Rutas base a confirmar con equipo de desarrollo
-- Considerar versionado (/v1/, /v2/) si aplica
-
-### Políticas de Seguridad del API Gateway 
-
-#### Capa 1: API Gateway (Kong)
-- **JWT Validation:** Verificación básica de tokens Auth0
-- **CORS Policy:** Restricción de orígenes frontend
-- **Propósito:** Filtro general antes de llegar a la aplicación
-
-#### Capa 2: Application Layer (shared/auth/)
-- **Autorización:** Validación de roles y permisos específicos
-- **Lógica negocio:** Reglas de acceso por dominio
-- **Auditoría:** Logging detallado por operación
-
-## Cloud Provider
-
-### Decisión
-**AWS (Amazon Web Services)** como proveedor cloud principal.
-
-### Servicios AWS Utilizados
-- **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
-- **RDS** (Relational Database Service) - Bases de datos SQLServer
-- **ElastiCache** - Redis para caching distribuido
-- **Secrets Manager** - Gestión centralizada de secrets
-- **ALB** (Application Load Balancer) - Balanceo de carga
-- **SNS** - Mensajería y eventos asíncronos
-
-# 3. Diagrama de arquitectura
-
-![Diagrama de arquitectura](assets/Diagrama-Arquitectura.svg)
-
-# 4. Patrones de Arquitectura
-
-
-### Anti-Corruption Layer
-
-Para aislar los dominios y asegurarnos de que los cambios en uno no afecten a otro usamos el Anti-Corruption Layer. Nos ayuda a mantener la integridad y consistencia del dominio.
-
-
-#### ACL File
-
-Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos para llamadas del mismo dominio y ACL para llamadas de otros dominios. Además se exponen los métodos y se hace internamente el llamado a los contratos.
-[SubscriptionACL.js](src/domains/subscriptions/acl/SubscriptionACL.js)
-
-
-
-# 5.  Convivencia entre Microservicios y Domain‑Driven Design
-
-En la arquitectura vigente del proyecto tras la depuración y reestructuración adoptamos un estilo en el que cada subempresa del ecosistema PromptSales opera como un bounded context independiente, y dentro de cada uno existen sus propios dominios internos (Campaigns, Subscriptions, Leads, etc.).
-
-Esto reemplaza el enfoque inicial donde se intentaba modelar un único “macro‑dominio” con múltiples microservicios dentro.
-La arquitectura actual es más clara, escalable y coherente con DDD aplicado a microservicios modernos.
-
-### Estructura Implementada: Un Bounded Context por Subempresa
-
-Cada subempresa es un contexto delimitado (bounded context) completo:
-- Tiene su propio servidor (server.js)
-- Su propio API (routes.js)
-- Sus propios modelos, servicios, controladores y repositorios
-- Su propia integración externa:
-- - acl/
-- - clients/
-- - contracts/
-
-Por ejemplo, prompt‑ads incluye únicamente los dominios relevantes para Ads: campañas, audiencias, métricas, etc.
-
-### Comunicación Entre Bounded Contexts
-
-Dado que cada bounded context se materializa como un microservicio independiente, toda comunicación cross‑context se hace mediante HTTP/REST, nunca mediante acceso directo a datos o modelos.
-
-**Mecanismo:**
-1. El microservicio consumidor llama a su ACL interno, por ejemplo:
-
-``` swift
-src/apps/prompt-ads/acl/SubscriptionACL.js
-``` 
-
-2. El ACL encapsula la interacción remota usando un client especializado:
-``` swift
-src/apps/prompt-ads/clients/SubscriptionClient.js
-``` 
-3. El client implementa las llamadas REST definidas en el contrato:
-``` swift
-src/apps/prompt-ads/contracts/SubscriptionContract.js
-```
-4. Ese contrato corresponde con los OpenAPI documentados del microservicio remoto (ej. subscriptions).
-Con esto se preserva el patrón de Anti‑Corruption Layer, adaptado al contexto de microservicios distribuidos.
 
 ### Contratos REST y Versionamiento
 Cada microservicio expone su API mediante:
@@ -1540,7 +1463,48 @@ src/apps/prompt-ads/contracts/CampaignContract.js (client + helpers)
 contracts/rest/ads-openapi.yaml        (especificación formal)
 ``` 
 
-# 6. Diseño de Bases de Datos
+**Shared:** registra Idempotency-Key [src/shared/http/idempotency.js](src/shared/http/idempotency.js), logs [src/shared/observability/logger.js](src/shared/observability/logger.js) y trazas [src/shared/observability/tracing.js](src/shared/observability/tracing.js).
+
+### Testing 
+Todos los tests cross-domain deben probar **solo los ACL.**
+Nunca se testean directamente los clients o contratos externos.
+``` swift
+src/apps/prompt-ads/__tests__/CampaignACL.test.js
+``` 
+Además, cada dominio interno puede tener tests unitarios para:
+- controllers
+- services
+- repositorios
+
+# 3. Diagrama de arquitectura
+
+![Diagrama de arquitectura](assets/Diagrama-Arquitectura.svg)
+
+# 4. Patrones de Arquitectura
+
+
+### Anti‑Corruption Layer entre Bounded Contexts
+
+Cuando un microservicio necesita comunicarse con otro, no lo hace directamente:
+**siempre pasa por su ACL interno** para proteger el dominio de modelos externos.
+Ejemplo de flujo en Ads → Subscriptions:
+
+```swift
+src/apps/prompt-ads/acl/SubscriptionACL.js       (façade seguro)
+src/apps/prompt-ads/clients/SubscriptionClient.js (client HTTP especializado)
+src/apps/prompt-ads/contracts/SubscriptionContract.js (contrato REST versionado)
+```
+La comunicación inter‑contexto:
+- es solo por HTTP/REST
+- usa autenticación JWT con audience por microservicio
+- nunca comparte modelos internos
+- cada contrato es versionado para permitir evolución independiente
+
+
+
+
+
+# 5. Diseño de Bases de Datos
 
 
 
@@ -1584,7 +1548,54 @@ Dado que no se requiere infraestructura Redis real, se agregaron previstas de ca
 Esto demuestra cómo se integraría un sistema de cache distribuido en una arquitectura real.
 Además se deja preparado para futuras implementaciones sin romper los repositorios existentes.
 
+# 6. API Gateway & Routing
 
+Usamos **Kong Gateway** para el routing de APIs. Configuración en [k8s/api-gateway/](k8s/api-gateway/)
+
+**Routing Map:**
+- `/api/content/*` → PromptContent Microservice
+- `/api/ads/*` → PromptAds Microservice  
+- `/api/crm/*` → PromptCRM Microservice
+
+**Features:**
+- Autenticación JWT centralizada
+- CORS management  
+- Logging y métricas
+
+### Variables a definir durante implementación:
+
+#### Service URLs
+- `[NAMESPACE]`: Namespace de Kubernetes donde se despliegan los microservicios
+- `[PORT]`: Puerto interno de cada microservicio
+
+#### Paths Routing  
+- Rutas base a confirmar con equipo de desarrollo
+- Considerar versionado (/v1/, /v2/) si aplica
+
+### Políticas de Seguridad del API Gateway 
+
+#### Capa 1: API Gateway (Kong)
+- **JWT Validation:** Verificación básica de tokens Auth0
+- **CORS Policy:** Restricción de orígenes frontend
+- **Propósito:** Filtro general antes de llegar a la aplicación
+
+#### Capa 2: Application Layer (shared/auth/)
+- **Autorización:** Validación de roles y permisos específicos
+- **Lógica negocio:** Reglas de acceso por dominio
+- **Auditoría:** Logging detallado por operación
+
+# 7. Cloud Provider
+
+### Decisión
+**AWS (Amazon Web Services)** como proveedor cloud principal.
+
+### Servicios AWS Utilizados
+- **EKS** (Elastic Kubernetes Service) - Orquestación de contenedores
+- **RDS** (Relational Database Service) - Bases de datos SQLServer
+- **ElastiCache** - Redis para caching distribuido
+- **Secrets Manager** - Gestión centralizada de secrets
+- **ALB** (Application Load Balancer) - Balanceo de carga
+- **SNS** - Mensajería y eventos asíncronos
 
 
 
