@@ -1,4 +1,4 @@
-const { sql, getPool } = require('../../../../db/sql-server-connection');
+const { sql, getPool } = require('../../../db/sql-server-connection');
 
 class CampaignRepositorySP {
     constructor() {
