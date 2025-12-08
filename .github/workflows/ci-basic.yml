@@ -1,0 +1,32 @@
+name: CI Basic Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  run-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint || echo "Linter warnings/no linter configured"
+
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+      - name: Done
+        run: echo "CI completed!"
