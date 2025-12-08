@@ -1,0 +1,34 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prompt-crm
+  namespace: promptsales
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/container-concurrency: "100"
+    spec:
+      serviceAccountName: prompt-crm-sa
+      containers:
+        - image: REPLACE_ME_AWS_ACCOUNT.dkr.ecr.REPLACE_ME_REGION.amazonaws.com/prompt-crm:latest
+          env:
+            - name: AUTH0_ISSUER
+              value: "https://promptsales-prod.auth0.com/"
+            - name: AUTH0_AUDIENCE
+              value: "https://api.prompt-crm.promptsales.com"
+            - name: AUTH0_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-id
+            - name: AUTH0_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-secret
+            - name: SQLSERVER_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: prompt-crm-sql
+                  key: connectionString

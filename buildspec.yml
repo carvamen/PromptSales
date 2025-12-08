@@ -1,0 +1,157 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: "us-east-1"
+
+    # ECR repos por empresa
+    ECR_PROMPT_CONTENT: "123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-content"
+    ECR_PROMPT_ADS:     "123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-ads"
+    ECR_PROMPT_CRM:     "123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-crm"
+    ECR_PROMPT_SALES:   "123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-sales"
+
+    # K8s / Knative
+    K8S_NAMESPACE: "promptsales"
+    EKS_CLUSTER: "promptsales-eks"
+
+    # Flyway / SQL Server (usado por PromptAds, PromptCrm y dominios core)
+    SQLSERVER_HOST: "promptsales-sqlserver.xxxxx.rds.amazonaws.com"
+    SQLSERVER_DB_CORE: "PromptSalesCore"
+    SQLSERVER_DB_ADS: "PromptSalesAds"
+    SQLSERVER_DB_CRM: "PromptSalesCrm"
+    SQLSERVER_USER: "flyway_user"
+    # NOTE: SQLSERVER_PASSWORD DEBE SER AGREGADA EN CODEBUILD COMO SECRET ENV (no en el YAML)
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+      docker: 20
+    commands:
+      - echo "== Install phase =="
+      - npm ci
+
+      # instalar eslint localmente (si está en devDependencies no es necesario)
+      - if [ ! -f node_modules/.bin/eslint ]; then npm install --no-audit --no-fund --no-package-lock eslint --no-save; fi
+
+      - echo "Installing AWS CLI v2 and kubectl if needed"
+      - curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+      - unzip -q awscliv2.zip
+      - sudo ./aws/install -i /usr/local/aws-cli -b /usr/local/bin || true
+      - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - chmod +x kubectl && mv kubectl /usr/local/bin/kubectl || true
+
+  pre_build:
+    commands:
+      - echo "== Pre build phase =="
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}
+      - echo "Image tag: $IMAGE_TAG"
+
+      # Login to ECR (reutilizable para varias repos)
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_PROMPT_CONTENT
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_PROMPT_ADS
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_PROMPT_CRM
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_PROMPT_SALES
+
+      # CI: Linter + Tests
+      - echo "== Running ESLint =="
+      - npx eslint . --ext .js,.mjs || (echo "ESLint found issues" && exit 1)
+      - echo "== Running unit tests =="
+      - npm test --silent || (echo "Tests failed" && exit 1)
+
+  build:
+    commands:
+      - echo "== Build Docker images =="
+
+      # PromptContent (Mongo)
+      - docker build -t prompt-content:latest ./src/apps/prompt-content
+      - docker tag prompt-content:latest $ECR_PROMPT_CONTENT:$IMAGE_TAG
+      - docker tag prompt-content:latest $ECR_PROMPT_CONTENT:latest
+
+      # PromptAds (SQL Server)
+      - docker build -t prompt-ads:latest ./src/apps/prompt-ads
+      - docker tag prompt-ads:latest $ECR_PROMPT_ADS:$IMAGE_TAG
+      - docker tag prompt-ads:latest $ECR_PROMPT_ADS:latest
+
+      # PromptCrm (SQL Server)
+      - docker build -t prompt-crm:latest ./src/apps/prompt-crm
+      - docker tag prompt-crm:latest $ECR_PROMPT_CRM:$IMAGE_TAG
+      - docker tag prompt-crm:latest $ECR_PROMPT_CRM:latest
+
+      # PromptSales (portal)
+      - docker build -t prompt-sales:latest ./src/apps/prompt-sales
+      - docker tag prompt-sales:latest $ECR_PROMPT_SALES:$IMAGE_TAG
+      - docker tag prompt-sales:latest $ECR_PROMPT_SALES:latest
+
+  post_build:
+    commands:
+      - echo "== Push Docker images =="
+      - docker push $ECR_PROMPT_CONTENT:$IMAGE_TAG
+      - docker push $ECR_PROMPT_CONTENT:latest
+
+      - docker push $ECR_PROMPT_ADS:$IMAGE_TAG
+      - docker push $ECR_PROMPT_ADS:latest
+
+      - docker push $ECR_PROMPT_CRM:$IMAGE_TAG
+      - docker push $ECR_PROMPT_CRM:latest
+
+      - docker push $ECR_PROMPT_SALES:$IMAGE_TAG
+      - docker push $ECR_PROMPT_SALES:latest
+
+      - echo "== Configure kubectl for EKS =="
+      - aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
+
+      - echo "== Run Flyway migrations for SQL Server (Docker-based, per-service) =="
+      # Nota: se monta la carpeta de migrations en cada servicio. Ajusta paths si tu repositorio difiere.
+      # Los comandos asumen que SQLSERVER_PASSWORD está en el entorno del proyecto CodeBuild (Secret).
+      - |
+        if [ -d "./src/apps/prompt-ads/db/migrations" ]; then
+          docker run --rm \
+            -v "$(pwd)/src/apps/prompt-ads/db/migrations:/flyway/sql" \
+            flyway/flyway:10 \
+            -url="jdbc:sqlserver://$SQLSERVER_HOST:1433;databaseName=$SQLSERVER_DB_ADS;encrypt=true;trustServerCertificate=false" \
+            -user="$SQLSERVER_USER" \
+            -password="$SQLSERVER_PASSWORD" \
+            -locations="filesystem:/flyway/sql" \
+            migrate
+        else
+          echo "No migrations for prompt-ads"
+        fi
+
+      - |
+        if [ -d "./src/apps/prompt-crm/db/migrations" ]; then
+          docker run --rm \
+            -v "$(pwd)/src/apps/prompt-crm/db/migrations:/flyway/sql" \
+            flyway/flyway:10 \
+            -url="jdbc:sqlserver://$SQLSERVER_HOST:1433;databaseName=$SQLSERVER_DB_CRM;encrypt=true;trustServerCertificate=false" \
+            -user="$SQLSERVER_USER" \
+            -password="$SQLSERVER_PASSWORD" \
+            -locations="filesystem:/flyway/sql" \
+            migrate
+        else
+          echo "No migrations for prompt-crm"
+        fi
+
+      - |
+        if [ -d "./src/apps/prompt-sales/db/migrations" ]; then
+          docker run --rm \
+            -v "$(pwd)/src/apps/prompt-sales/db/migrations:/flyway/sql" \
+            flyway/flyway:10 \
+            -url="jdbc:sqlserver://$SQLSERVER_HOST:1433;databaseName=$SQLSERVER_DB_CORE;encrypt=true;trustServerCertificate=false" \
+            -user="$SQLSERVER_USER" \
+            -password="$SQLSERVER_PASSWORD" \
+            -locations="filesystem:/flyway/sql" \
+            migrate
+        else
+          echo "No migrations for prompt-sales"
+        fi
+
+      - echo "== Deploy Knative services =="
+      - kubectl apply -f k8s/knative/prompt-content.yaml -n $K8S_NAMESPACE
+      - kubectl apply -f k8s/knative/prompt-ads.yaml -n $K8S_NAMESPACE
+      - kubectl apply -f k8s/knative/prompt-crm.yaml -n $K8S_NAMESPACE
+      - kubectl apply -f k8s/knative/prompt-sales.yaml -n $K8S_NAMESPACE
+
+artifacts:
+  files:
+    - '**/*'

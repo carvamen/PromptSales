@@ -1,0 +1,37 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prompt-content
+  namespace: promptsales
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/container-concurrency: "100"
+    spec:
+      serviceAccountName: prompt-content-sa   # opcional, si necesitas IAM específico por servicio
+      containers:
+        - image: REPLACE_ME_AWS_ACCOUNT.dkr.ecr.REPLACE_ME_REGION.amazonaws.com/prompt-content:latest # EJ: 123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-content
+          env:
+            - name: AUTH0_ISSUER
+              value: "https://promptsales-prod.auth0.com/"
+            - name: AUTH0_AUDIENCE
+              value: "https://api.prompt-content.promptsales.com"
+            - name: AUTH0_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-id
+            - name: AUTH0_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-secret
+            - name: AUTH0_REDIRECT_URI
+              value: "https://prompt-content.promptsales.com/auth/callback"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: prompt-content-mongo
+                  key: uri
+
