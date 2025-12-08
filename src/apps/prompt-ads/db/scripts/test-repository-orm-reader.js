@@ -1,4 +1,4 @@
-const SubscriptionRepositoryORM = require('../../../../infrastructure/repositories/SubscriptionRepositoryORM');
+const SubscriptionRepositoryORM = require('../../src/domains/infraestructure/repositories/SubscriptionRepositoryORM');
 const { sequelize } = require('../sequlize-config');
 
 async function testSubscriptionReader() {

@@ -1,4 +1,4 @@
-const Campaign = require('../../../src/apps/prompt-ads/src/models/Campaign');
+const Campaign = require('../../../models/Campaign');
 
 class CampaignRepositoryORM {
   // ESCRITURA - CON CONVERSIÓN EXPLÍCITA

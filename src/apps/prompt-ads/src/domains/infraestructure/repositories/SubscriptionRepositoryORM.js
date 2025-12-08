@@ -1,4 +1,4 @@
-const Subscription = require('../../../src/apps/prompt-ads/src/models/Subscription');
+const Subscription = require('../../../models/Subscription');
 
 class SubscriptionRepositoryORM {
   constructor() {
