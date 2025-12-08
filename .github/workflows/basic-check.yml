@@ -1,0 +1,19 @@
+name: Basic CI Check
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  simple-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Print confirmation
+        run: echo "GitHub Actions está funcionando correctamente 🎉"
+
+      - name: List files
+        run: ls -la
