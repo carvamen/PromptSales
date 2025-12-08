@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "lint": "eslint src --ext .js,.cjs,.mjs",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "jest": "^29.0.0"
+  }
+}

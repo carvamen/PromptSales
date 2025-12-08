@@ -1,0 +1,28 @@
+name: Deploy PromptContent
+
+on:
+  push:
+    branches: [ master ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  trigger-codebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::REPLACE_ME_AWS_ACCOUNT:role/PromptSalesGithubRole
+          aws-region: REPLACE_ME_AWS_REGION
+
+      - name: Start CodeBuild
+        run: |
+          aws codebuild start-build \
+            --project-name PromptSales-BuildDeploy \
+            --source-version $GITHUB_SHA
