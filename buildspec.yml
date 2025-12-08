@@ -21,6 +21,10 @@ env:
     SQLSERVER_DB_CRM: "PromptSalesCrm"
     SQLSERVER_USER: "flyway_user"
     # NOTE: SQLSERVER_PASSWORD DEBE SER AGREGADA EN CODEBUILD COMO SECRET ENV (no en el YAML)
+    
+    # Mongo
+    MONGO_URI: "mongodb+srv://xxx.mongodb.net"
+    MONGO_DB_NAME: "prompt_content"
 
 phases:
   install:
@@ -41,6 +45,9 @@ phases:
       - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
       - chmod +x kubectl && mv kubectl /usr/local/bin/kubectl || true
 
+      - echo "Installing migrate-mongo for PromptContent"
+      - cd src/apps/prompt-content && npm install migrate-mongo --save-dev && cd ../../..
+
   pre_build:
     commands:
       - echo "== Pre build phase =="
@@ -58,6 +65,14 @@ phases:
       - npx eslint . --ext .js,.mjs || (echo "ESLint found issues" && exit 1)
       - echo "== Running unit tests =="
       - npm test --silent || (echo "Tests failed" && exit 1)
+
+      # Migraciones Mongo
+      - echo "== Running Mongo migrations (PromptContent) =="
+      - cd src/apps/prompt-content
+      - export MONGO_URI=$MONGO_URI
+      - export DB_NAME=$MONGO_DB_NAME
+      - npx migrate-mongo up
+      - cd ../../..
 
   build:
     commands:

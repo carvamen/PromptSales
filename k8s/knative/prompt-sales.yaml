@@ -1,0 +1,47 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prompt-sales
+  namespace: promptsales
+spec:
+  template:
+    spec:
+      serviceAccountName: external-secrets-sa   # IRSA para acceso seguro
+      containers:
+        - image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-sales:latest
+          env:
+            # --- Auth0 OIDC ---
+            - name: AUTH0_ISSUER
+              value: "https://promptsales-prod.auth0.com/"
+            - name: AUTH0_AUDIENCE
+              value: "https://api.prompt-sales.promptsales.com
+            - name: AUTH0_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-id
+            - name: AUTH0_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: auth0-secret
+                  key: client-secret
+            - name: AUTH0_REDIRECT_URI
+              value: "https://prompt-sales.promptsales.com/auth/callback"
+            # --- SQL Server DB (usado por portal/core) ---
+            - name: SQLSERVER_HOST
+              value: "promptsales-sqlserver.xxxxx.rds.amazonaws.com"
+            - name: SQLSERVER_DB
+              value: "PromptSalesCore"
+            - name: SQLSERVER_USER
+              valueFrom:
+                secretKeyRef:
+                  name: sqlserver-secret
+                  key: username
+            - name: SQLSERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sqlserver-secret
+                  key: password
+          ports:
+            - containerPort: 8080
+              name: http1
