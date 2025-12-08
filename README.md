@@ -11,30 +11,8 @@ PromptSales - Ecosistema de Marketing con IA
 │   ├── Diagrama-Arquitectura.svg
 │   └── DiagramaDeArquitectura.pdf
 │
-├── 📋 compliance/
-│   ├── 📊 gdpr/
-│   │   ├── data-map.md
-│   │   ├── dsr-procedure.md
-│   │   └── retention-policy.md
-│   │
-│   ├── 🛡️ owasp/
-│   │   ├── dast-report.latest.md
-│   │   └── sast-report-latest.md
-│   │
-│   └── 💳 payments/
-│       ├── psp-list.md
-│       └── webhook-signing.md
-│
 ├── 📑 contracts/
-│   ├── 🤖 mcp/
-│   │   ├── ads-orchestrator.json
-│   │   ├── content-tools.json
-│   │   ├── crm-automation.json
-│   │   └── newdomain.json
-│   │
 │   └── 🌐 rest/
-│       ├── ads-openapi.yaml
-│       ├── content.openapi.yaml
 │       ├── identity-openapi.yaml
 │       ├── payment-openapi.yaml
 │       └── subscription-openapi.yaml
@@ -775,7 +753,7 @@ spec:
   template:
     spec:
       containers:
-      - image: acr-promptsales.azurecr.io/prompt-content:latest
+      - image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/prompt-content:154
         env:
         - name: AUTH0_ISSUER
           value: "https://promptsales-prod.auth0.com/"
@@ -2163,48 +2141,52 @@ module.exports = app;
 
 
 
-SPS: 
-'''sql
--- Conectar a la base promptads
-USE promptads;
-GO
+## Implementación del Repository Layer
 
--- SP de Escritura
-CREATE OR ALTER PROCEDURE usp_Campaign_Create
-    @IdOrganization INT,
-    @Name VARCHAR(60),
-    @Description VARCHAR(200),
-    @IdCity INT,
-    @StartsAt DATE,
-    @EndsAt DATE,
-    @IdCampaignStatus TINYINT = 1
-AS
-BEGIN
-    INSERT INTO PACampaigns (
-        IdOrganization, name, description, IdCity, 
-        createdAt, startsAt, endsAt, IdCampaignStatus, deleted
-    )
-    VALUES (
-        @IdOrganization, @Name, @Description, @IdCity,
-        GETDATE(), @StartsAt, @EndsAt, @IdCampaignStatus, 0
-    );
-    
-    SELECT SCOPE_IDENTITY() as NewCampaignId;
-END
-GO
+**Estructura de Directorios**
 
--- SP de Lectura
-CREATE OR ALTER PROCEDURE usp_Campaign_GetById
-    @CampaignId INT
-AS
-BEGIN
-    SELECT 
-        c.IdCampaign, c.name, c.description, c.IdCity,
-        c.createdAt, c.startsAt, c.endsAt, c.IdCampaignStatus,
-        o.name as OrganizationName
-    FROM PACampaigns c
-    INNER JOIN PAOrganizations o ON c.IdOrganization = o.IdOrganization
-    WHERE c.IdCampaign = @CampaignId AND c.deleted = 0;
-END
-GO
-'''
+El repository layer está organizado en tres directorios principales dentro de `apps/prompt-ads`. En `src/infrastructure/repositories/` están los archivos de implementación: `CampaignRepositorySP.js` usa stored procedures de SQL Server, mientras que `SubscriptionRepositoryORM.js` implementa el patrón con Sequelize. Los tests están en `scripts/`, separados en `test-subscription-writer.js` y `test-subscription-reader.js` para ORM, y archivos similares con prefijo `test-repository-` para stored procedures. La configuración de base de datos reside en `src/db/`, con `sql-server-connection.js` para conexiones directas y `sequelize-config.js` para ORM.
+
+**Implementación con Stored Procedures**
+
+Para el approach de stored procedures, creamos `CampaignRepositorySP.js` que encapsula llamadas a procedimientos almacenados en SQL Server. Este archivo contiene métodos como `create()` que ejecuta `usp_Campaign_Create` y `findById()` que llama a `usp_Campaign_GetById`. La conexión usa el driver `mssql` directamente, enviando parámetros mediante `request.input()` y recibiendo resultados en `recordset`. Los tests correspondientes validan escritura y lectura por separado, ejecutándose con Node.js y mostrando resultados en consola.
+
+**Implementación con ORM (Sequelize)**
+
+El approach ORM utiliza `SubscriptionRepositoryORM.js` que define operaciones CRUD sobre el modelo `Subscription`. Sequelize mapea automáticamente la tabla `PASubscriptions` mediante el modelo definido en `src/models/Subscription.js`, que especifica tipos de datos y mapeo de columnas. Los métodos `create()`, `findById()` y `findAll()` usan la API de Sequelize para generar queries SQL automáticamente. Los tests demuestran creación de múltiples registros y consultas con diferentes criterios, aprovechando la abstracción del ORM para código más expresivo.
+
+**Configuración y Pruebas**
+
+La configuración de conexión difiere entre approaches: para SPs usamos conexión directa configurada en `sql-server-connection.js`, mientras que para ORM configuramos Sequelize en `sequelize-config.js` con opciones específicas para SQL Server. Las pruebas se ejecutan independientemente - primero escritura para generar datos, luego lectura para validarlos - permitiendo demostrar ambas operaciones requeridas. Cada archivo de test incluye logging detallado que muestra los queries generados y los resultados obtenidos, facilitando la verificación del funcionamiento correcto.
+
+**Separación de Responsabilidades**
+
+Mantenemos separación clara: los repositories solo manejan persistencia, los models definen estructura de datos, y los tests validan comportamiento. Los archivos están nombrados consistentemente indicando su tecnología (SP u ORM) y operación (writer o reader). Esta organización permite comparar directamente ambos approaches - stored procedures ofrecen máximo control y performance, mientras que ORM proporciona mayor productividad y portabilidad - cumpliendo con el requisito de implementar y probar ambos ejemplos para el repository layer.
+
+# Cache
+
+Para el punto solicitado de cache y connection pool, la solución implementada incluye:
+
+## 1. Connection Pool
+
+Ya está implementado tanto para Stored Procedures como para ORM, con parámetros:
+
+- **max**: conexiones máximas simultáneas
+- **min**: conexiones reservadas
+- **idleTimeout**: liberación de conexiones inactivas
+
+## 2. Cache (previstas)
+
+Dado que no se requiere infraestructura Redis real, se agregaron previstas de cache en los repositories:
+
+- Comentarios que indican dónde se inicializaría Redis
+- TTL sugerido
+- Estrategia cache-aside
+- Lugares donde se harían invalidaciones
+
+Esto demuestra cómo se integraría un sistema de cache distribuido en una arquitectura real.
+
+Además se deja preparado para futuras implementaciones sin romper los repositorios existentes.
+
+
+revisar namespace y el service name y que el archivos de k8s tambien coincida 
