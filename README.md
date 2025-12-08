@@ -1473,232 +1473,8 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en `k8s/api-gate
 
 ![Diagrama de arquitectura](assets/Diagrama-Arquitectura.svg)
 
-## Patrones de Arquitectura
+# 4. Patrones de Arquitectura
 
-### Asynchronous Request-Reply
-Los llamados a IA deben incluír este patrón para cumplir con los requerimientos de tiempo de respuesta. Esste patrón nos ayuda a ejecutar los llamados a la IA en "background" y se le da una respuesta al cliente comunicando que está en ejecución. Para esto usaremos 
-[AsyncIAService.js](src/domains/ia/services/AsyncIAService.js) el cual tiene las funciones para empezar los tasks y notificar sobre el profreso.
-
-``` javascript
-// src/domains/ia/services/AsyncIAService.js
-const { v4: uuidv4 } = require('uuid');
-
-class AsyncIAService {
-  constructor(taskManager, sqsService, snsService, lambdaService) {
-    this.taskManager = taskManager;
-    this.sqsService = sqsService;
-    this.snsService = snsService;
-    this.lambdaService = lambdaService;
-  }
-
-  async submitTask(operation, input, userId) {
-    const task = await this.taskManager.createTask({
-      id: uuidv4(),
-      userId,
-      operation,
-      input,
-      estimatedCompletionTime: this.calculateEstimatedTime(operation, input)
-    });
-
-    // Encolar en SQS para procesamiento asíncrono
-    await this.sqsService.enqueue(process.env.IA_TASKS_QUEUE_URL, {
-      taskId: task.id,
-      operation,
-      input,
-      userId
-    });
-
-    return task;
-  }
-
-  async processTask(taskId, operation, input, userId) {
-    const task = await this.taskManager.getTask(taskId, userId);
-    
-    try {
-      task.markAsProcessing();
-      await this.taskManager.updateTask(task);
-
-      // Opción 1: Invocar Lambda function para procesamiento pesado
-      if (this.shouldUseLambda(operation)) {
-        const result = await this.invokeIALambda(operation, input, taskId);
-        task.markAsCompleted(result);
-      
-      // Opción 2: Procesamiento directo (solo para operaciones rápidas)
-      } else {
-        const result = await this.executeIAOperation(operation, input, (progress) => {
-          task.updateProgress(progress);
-          this.taskManager.updateTask(task);
-        });
-        task.markAsCompleted(result);
-      }
-
-      await this.taskManager.updateTask(task);
-
-      // Publicar notificación en SNS para webhooks
-      await this.publishTaskCompletionNotification(task);
-
-    } catch (error) {
-      task.markAsFailed(error.message);
-      await this.taskManager.updateTask(task);
-      throw error;
-    }
-  }
-
-  async invokeIALambda(operation, input, taskId) {
-    const lambdaFunctionName = this.getLambdaFunctionName(operation);
-    
-    const result = await this.lambdaService.invoke({
-      FunctionName: lambdaFunctionName,
-      InvocationType: 'RequestResponse', // O 'Event' para asíncrono
-      Payload: JSON.stringify({
-        taskId,
-        operation,
-        input,
-        callbackUrl: `${process.env.API_BASE_URL}/api/v1/ia/tasks/${taskId}/callback`
-      })
-    });
-
-    return JSON.parse(result.Payload);
-  }
-
-  async publishTaskCompletionNotification(task) {
-    await this.snsService.publish({
-      TopicArn: process.env.IA_TASKS_TOPIC_ARN,
-      Message: JSON.stringify({
-        eventType: 'ia.task.completed',
-        taskId: task.id,
-        userId: task.userId,
-        operation: task.operation,
-        completedAt: task.completedAt,
-        resultUrl: `${process.env.API_BASE_URL}/api/v1/ia/tasks/${task.id}/result`
-      }),
-      MessageAttributes: {
-        eventType: {
-          DataType: 'String',
-          StringValue: 'ia.task.completed'
-        },
-        userId: {
-          DataType: 'String',
-          StringValue: task.userId
-        }
-      }
-    });
-  }
-
-  calculateEstimatedTime(operation, input) {
-    const estimates = {
-      'content-generation': 30000, // 30 segundos
-      'image-processing': 60000,   // 1 minuto
-      'data-analysis': 120000      // 2 minutos
-    };
-    
-    return new Date(Date.now() + (estimates[operation] || 30000));
-  }
-
-  shouldUseLambda(operation) {
-    const lambdaOperations = ['content-generation', 'image-processing', 'data-analysis'];
-    return lambdaOperations.includes(operation);
-  }
-
-  getLambdaFunctionName(operation) {
-    const functionMap = {
-      'content-generation': process.env.CONTENT_GENERATION_LAMBDA,
-      'image-processing': process.env.IMAGE_PROCESSING_LAMBDA,
-      'data-analysis': process.env.DATA_ANALYSIS_LAMBDA
-    };
-    
-    return functionMap[operation];
-  }
-
-  async cancelTask(taskId, userId) {
-    const task = await this.taskManager.getTask(taskId, userId);
-    
-    if (task.status === 'pending' || task.status === 'processing') {
-      task.markAsFailed('Task cancelled by user');
-      await this.taskManager.updateTask(task);
-      
-      // Publicar evento de cancelación
-      await this.snsService.publish({
-        TopicArn: process.env.IA_TASKS_TOPIC_ARN,
-        Message: JSON.stringify({
-          eventType: 'ia.task.cancelled',
-          taskId: task.id,
-          userId: task.userId
-        })
-      });
-    }
-  }
-}
-
-module.exports = AsyncIAService;
-```
-
-El [AsyncIAController.js](src/domains/ia/controllers/AsyncIAController.js) tiene las funciones y hace los llamados mientras que el [IAACL.js](src/domains/ia/acl/IAACL.js) expone los métodos para llamados cross-domain.
-
-Los llamados desde otros dominios deben hacerse de la siguiente manera
-
-``` javascript
-// src/domains/content/controllers/ContentController.js
-class ContentController {
-  constructor(deps) {
-    // Solo recibe ACLs
-    this.iaACL = deps.iaACL;
-    this.subscriptionACL = deps.subscriptionACLForContent;
-  }
-
-  async generateAIContent(req, res) {
-    const { prompt, style, length } = req.body;
-    const userId = req.user.id;
-
-    try {
-      // Usar ACL para operaciones de IA
-      const taskResponse = await this.iaACL.submitAsyncTask(
-        'content-generation', 
-        { prompt, style, length },
-        userId
-      );
-
-      res.status(202).json({
-        success: true,
-        data: {
-          taskId: taskResponse.taskId,
-          statusUrl: taskResponse.statusUrl,
-          estimatedCompletionTime: taskResponse.estimatedCompletionTime
-        },
-        message: 'Content generation started'
-      });
-
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        error: error.message
-      });
-    }
-  }
-
-  async checkContentGenerationStatus(req, res) {
-    const { taskId } = req.params;
-    const userId = req.user.id;
-
-    try {
-      const status = await this.iaACL.getTaskStatus(taskId, userId);
-      
-      res.json({
-        success: true,
-        data: status
-      });
-
-    } catch (error) {
-      res.status(404).json({
-        success: false,
-        error: error.message
-      });
-    }
-  }
-}
-```
-
-Se llama a la función submitAsyncTask del ACL para iniciar un request y al getTaskStatus para revisar el progreso.
 
 ### Anti-Corruption Layer
 
@@ -1709,435 +1485,62 @@ Para aislar los dominios y asegurarnos de que los cambios en uno no afecten a ot
 
 Debe haber un ACL por dominio, el ACL debe tener un constructor que permita Dependency Injection de los contractos para llamadas del mismo dominio y ACL para llamadas de otros dominios. Además se exponen los métodos y se hace internamente el llamado a los contratos.
 [SubscriptionACL.js](src/domains/subscriptions/acl/SubscriptionACL.js)
-``` javascript
-const SubscriptionContractFactory = require('../contracts/SubscriptionContractFactory');
 
-class SubscriptionACL {
-  constructor(identityACL, deps, version = 'v2') {
-    this.identityACL = identityACL; // Recibe IdentityACL, no el contract
-    this.deps = deps;
-    this.version = version;
-    this.subscriptionContract = SubscriptionContractFactory.create(version, deps);
-  }
 
-  async getUserSubscriptionWithProfile(userId) {
-    // Usa IdentityACL en lugar del contract directo
-    const userInfo = await this.identityACL.getUserInfo(userId);
-    const subscription = await this.subscriptionContract.getUserSubscription(userId);
 
-    return {
-      user: userInfo,
-      subscription,
-      contractVersion: this.version
-    };
-  }
+# 5.  Convivencia entre Microservicios y Domain‑Driven Design
 
-  async canUserPerformAction(userId, action) {
-    // Combina validaciones de ambos ACLs
-    const [hasAccess, subscription] = await Promise.all([
-      this.identityACL.validateUserAccess(userId, 'subscription'),
-      this.subscriptionContract.getUserSubscription(userId)
-    ]);
+En la arquitectura vigente del proyecto tras la depuración y reestructuración adoptamos un estilo en el que cada subempresa del ecosistema PromptSales opera como un bounded context independiente, y dentro de cada uno existen sus propios dominios internos (Campaigns, Subscriptions, Leads, etc.).
 
-    return hasAccess && subscription.status === 'active';
-  }
+Esto reemplaza el enfoque inicial donde se intentaba modelar un único “macro‑dominio” con múltiples microservicios dentro.
+La arquitectura actual es más clara, escalable y coherente con DDD aplicado a microservicios modernos.
 
-  async getSubscriptionForBilling(userId) {
-    const userProfile = await this.identityACL.getUserProfileForDisplay(userId);
-    const subscription = await this.subscriptionContract.getUserSubscription(userId);
+### Estructura Implementada: Un Bounded Context por Subempresa
 
-    return {
-      billingContact: {
-        name: userProfile.displayName,
-        email: userProfile.email
-      },
-      subscription: {
-        plan: subscription.plan,
-        amount: this.calculateBillingAmount(subscription.plan),
-        nextBillingDate: subscription.expiresAt
-      }
-    };
-  }
+Cada subempresa es un contexto delimitado (bounded context) completo:
+- Tiene su propio servidor (server.js)
+- Su propio API (routes.js)
+- Sus propios modelos, servicios, controladores y repositorios
+- Su propia integración externa:
+- - acl/
+- - clients/
+- - contracts/
 
-  calculateBillingAmount(plan) {
-    const prices = { basic: 10, premium: 25, enterprise: 100 };
-    return prices[plan] || 0;
-  }
-}
+Por ejemplo, prompt‑ads incluye únicamente los dominios relevantes para Ads: campañas, audiencias, métricas, etc.
 
-module.exports = SubscriptionACL;
-```
+### Comunicación Entre Bounded Contexts
 
-#### Manejo de versiones de contratos
-Todos los contratos deben extender el [BaseVersionedContract.js](src/shared/contracts/BaseVersionedContract.js), esto para asegurar versionamiento y logging. Los constructores deben incluir la versión del contrato como en el siguiente ejemplo:
-``` javascript
-const BaseVersionedContract = require('../../../../../shared/contracts/BaseVersionedContract');
+Dado que cada bounded context se materializa como un microservicio independiente, toda comunicación cross‑context se hace mediante HTTP/REST, nunca mediante acceso directo a datos o modelos.
 
-class SubscriptionContractV1 extends BaseVersionedContract {
-  constructor(deps) {
-    super(deps, 'v1');
-  }
-}
-```
+**Mecanismo:**
+1. El microservicio consumidor llama a su ACL interno, por ejemplo:
 
-#### Ejemplos de uso
-Los controladores se pueden llamar desde otros controladores del mismo dominio de las siguientes maneras:
-``` javascript
-//Creamos el factory del contrato
-const SubscriptionContractFactory = require('./domains/subscriptions/contracts/SubscriptionContractFactory'); 
-
-// Pedimos la versión específica
-const contractV2 = SubscriptionContractFactory.create('v2', deps);
-const subscription = await contractV2.getUserSubscription(userId);
-
-// O pedimos la versión default
-const defaultContract = SubscriptionContractFactory.create(SubscriptionContractFactory.getDefaultVersion(), deps);
-
-// Creamos una versión específica según el header de un request
-const version = req.headers['api-version'] || 'v2';
-const contract = SubscriptionContractFactory.create(version, deps);
+``` swift
+src/apps/prompt-ads/acl/SubscriptionACL.js
 ``` 
 
-#### Agregar versiones de un contrato
-1- Creamos un archivo de la siguiente manera:
+2. El ACL encapsula la interacción remota usando un client especializado:
+``` swift
+src/apps/prompt-ads/clients/SubscriptionClient.js
+``` 
+3. El client implementa las llamadas REST definidas en el contrato:
+``` swift
+src/apps/prompt-ads/contracts/SubscriptionContract.js
+```
+4. Ese contrato corresponde con los OpenAPI documentados del microservicio remoto (ej. subscriptions).
+Con esto se preserva el patrón de Anti‑Corruption Layer, adaptado al contexto de microservicios distribuidos.
 
-``` javascript
-const BaseVersionedContract = require('../../../../../shared/contracts/BaseVersionedContract');
-
-class SubscriptionContractV4 extends BaseVersionedContract {
-  constructor(deps) {
-    super(deps, 'v4');
-  }
-
-  async getUserSubscription(userId) {
-    return this.safeRequest('GetUserSubscription', async () => {
-      const response = await this.http.get(`/v4/subscriptions/${userId}`, {
-        headers: this.getHeaders()
-      });
-      
-      // New V4 response format
-      return {
-        plan: response.plan,
-        status: response.status,
-        expiresAt: response.expiresAt,
-        // NEW: Add usage metrics
-        usage: response.usageMetrics,
-        // NEW: Add billing info
-        billing: response.billingDetails
-      };
-    });
-  }
-
-  // NEW: Add method only available in V4
-  async getUsageAnalytics(userId) {
-    return this.safeRequest('GetUsageAnalytics', async () => {
-      const response = await this.http.get(`/v4/subscriptions/${userId}/analytics`);
-      return response;
-    });
-  }
-}
-
-module.exports = SubscriptionContractV4;
+### Contratos REST y Versionamiento
+Cada microservicio expone su API mediante:
+- OpenAPI (YAML)
+- versionado en contracts/rest/ dentro del microservicio correspondient
+Ejemplo (para Ads):
+``` swift
+src/apps/prompt-ads/contracts/CampaignContract.js (client + helpers)
+contracts/rest/ads-openapi.yaml        (especificación formal)
 ``` 
 
-2- Actualizamos el [SubscriptionContractFactory.js](src/domains/subscriptions/contracts/SubscriptionContractFactory.js):
-``` javascript
-const SubscriptionContractV4 = require('./versions/v4/SubscriptionContractV4');
-
-class SubscriptionContractFactory {
-  static create(version, deps) {
-    const versionMap = {
-      'v1': SubscriptionContractV1,
-      'v2': SubscriptionContractV2,
-      'v3': SubscriptionContractV3,
-      'v4': SubscriptionContractV4  // ADD THIS LINE
-    };
-
-    const ContractClass = versionMap[version];
-    if (!ContractClass) {
-      throw new Error(`Unsupported contract version: ${version}`);
-    }
-
-    return new ContractClass(deps);
-  }
-
-  static getSupportedVersions() {
-    return ['v1', 'v2', 'v3', 'v4'];  // UPDATE THIS
-  }
-
-  // Optional: Update default version
-  static getDefaultVersion() {
-    return 'v3';  // Or keep as v2
-  }
-}
-``` 
-
-3- Actualizamos el [SubscriptionContractMapper.js](src/domains/subscriptions/contracts/SubscriptionContractMapper.js) si cambió el formato del response
-``` javascript
-//Agregar método
-static mapToV4Format(response) {
-  return {
-    plan: response.plan,
-    status: response.status,
-    expiresAt: response.expiresAt,
-    usage: response.usage || {},  // Handle missing usage
-    billing: response.billing || {} // Handle missing billing
-  };
-}
-```
-
-#### Llamados desde otros dominios
-El controller de un dominio externo debe pasar la versión que usara del contrato cuando crea el ACL. Los dominios externos NO deben tener acceso al factory.
-[PaymentController.js](src/domains/payments/controllers/PaymentController.js)
-``` javascript
-class PaymentController {
-  constructor(deps) {
-    // Solo recibe ACLs, ningún contract directo
-    this.subscriptionACL = deps.subscriptionACL;
-  }
-
-  async processPayment(userId, amount) {
-    // Usa métodos de alto nivel del ACL
-    const billingInfo = await this.subscriptionACL.getSubscriptionForBilling(userId);
-    const canPay = await this.subscriptionACL.canUserPerformAction(userId, 'make_payment');
-
-    if (!canPay) {
-      throw new Error('Usuario no puede realizar pagos');
-    }
-
-    return await this.chargeUser(
-      billingInfo.billingContact.email,
-      billingInfo.subscription.amount
-    );
-  }
-}
-```
-
-#### Registro de ACL
-Si se agregan ACLs se deben agregar al registro centralizado
-[ACLRegistry.js](src/shared/acl/ACLRegistry.js)
-``` javascript
-const IdentityACL = require('../../domains/identity/acl/IdentityACL');
-const SubscriptionACL = require('../../domains/subscriptions/acl/SubscriptionACL');
-
-class ACLRegistry {
-  static init(deps) {
-    // Crear IdentityACL primero
-    const identityACL = new IdentityACL(deps.identityContract);
-    
-    return {
-      identityACL,
-      
-      // Diferentes ACLs de subscription para cada dominio
-      subscriptionACLForPayments: new SubscriptionACL(identityACL, deps, 'v2'),
-      subscriptionACLForCRM: new SubscriptionACL(identityACL, deps, 'v3'),
-      subscriptionACLForAnalytics: new SubscriptionACL(identityACL, deps, 'v2')
-    };
-  }
-}
-```
-
-# 4. Frontend Deployment (Vercel)
-
-## Decisión de Uso
-Utilizaremos **Vercel** exclusivamente para el despliegue del portal web unificado (frontend), manteniendo toda la lógica de negocio y APIs en nuestra infraestructura AWS.
-
-## ¿Por qué Vercel?
-- **Despliegue optimizado** para Next.js con integración nativa
-- **CDN global** para assets estáticos del portal web
-- **SSL automático** y gestión de dominios
-- **CI/CD integrado** con GitHub para el frontend
-
-## ¿Por qué NO Supabase?
-No utilizaremos Supabase porque nuestra arquitectura ya incluye:
-- **Auth0** para autenticación enterprise-grade
-- **AWS RDS** para bases de datos relacionales
-- **MongoDB Atlas** para datos no relacionales  
-- **Redis ElastiCache** para caching
-- **AWS Secrets Manager** para gestión de secrets
-
-Supabase no proporciona capacidades adicionales que justifiquen la complejidad de integración.
-
-# 5. Convivencia entre Microservicios y Domain Driven Design
-
-## Relación Microservicio → Domain: 1:N
-
-En PromptSales, hemos establecido una relación **1:N** entre dominios bounded context y microservicios. Cada dominio está compuesto por múltiples microservicios especializados.
-
-### Estructura Implementada:
-
-**CRM Domain** (1 dominio : 3 microservicios)
-- Opportunity Service
-- Conversation Service  
-- Leads Service
-
-**Ads Domain** (1 dominio : 3 microservicios)
-- Campaign Service
-- Audience Service
-- Reporting Service
-
-**Content Domain** (1 dominio : 2 microservicios)
-- Templates Service
-- ContentGeneration Service
-
-### Comunicación Cross-Domain en Arquitectura de Microservicios
-
-En nuestra implementación, las llamadas cross-domain se realizan a través de las **APIs REST de cada microservicio**, manteniendo el principio del Anti-Corruption Layer (ACL) pero adaptado al contexto distribuido.
-
-Cada microservicio expone su contrato mediante **APIs REST documentadas con OpenAPI** (definidas en `contracts/rest/`) y los ACLs se implementan como clients HTTP especializados que consumen estas APIs. Por ejemplo, cuando el servicio de Payments necesita validar una suscripción, utiliza el SubscriptionACL que internamente llama a la API REST del microservicio de Subscriptions.
-
-La comunicación se realiza mediante **HTTP/REST con autenticación JWT**, donde cada microservicio tiene su propio audience configurado en Auth0, garantizando el aislamiento de seguridad entre dominios. Los contratos versionados en `contracts/rest/` definen las interfaces estables que permiten la evolución independiente de cada microservicio.
-
-# 7. Operación con AWS Managed Services
-
-La arquitectura está preparada para trasladarse a **AWS Managed Services** sin modificar el código de negocio.
-
-- **Alcance de AWS Managed Services**
-    - Operación de **EKS, RDS, ElastiCache, ALB, Secrets Manager y KMS**.
-    - Parches, backups, recuperación ante desastres e incidentes sobre estos recursos.
-- **Infraestructura**
-    
-    Directorios:
-    
-    ```
-    k8s/
-    ├── knative/
-    │   ├── prompt-content.yaml
-    │   ├── prompt-ads.yaml
-    │   └── prompt-crm.yaml
-    └── operations/
-        ├── pdb.yaml
-        └── resources-limits.yaml
-    
-    ```
-    
-    Implementación en `k8s/knative/prompt-content.yaml`:
-    
-    ```yaml
-    metadata:
-      name: prompt-content
-      labels:
-        app.kubernetes.io/name: prompt-content
-        app.kubernetes.io/part-of: promptsales
-        env: production
-    ```
-    
-- **Observabilidad integrada**
-    
-    Estructura para monitoreo:
-    
-    ```
-    k8s/
-    └── observability/
-        └── cloudwatch-agent.yaml
-    ```
-    
-    Etiqueta en servicio (`k8s/knative/prompt-ads.yaml`):
-    
-    ```yaml
-    metadata:
-      name: prompt-ads
-      annotations:
-        logs.promptsales.com/forward-to: cloudwatch
-        monitoring.promptsales.com/enabled: "true"
-    ```
-    
-- **Seguridad**
-    
-    Integración con Secrets Manager:
-    
-    ```
-    k8s/
-    ├── external-secrets/
-    │   ├── service-account.yaml
-    │   ├── secret-store.yaml
-    │   └── external-secret.yaml
-    └── eks/
-        └── etct-encryption.yaml
-    ```
-    
-    Los microservicios consumen estos secretos vía variables de entorno en `src/apps/**/server.js` y módulos compartidos (`src/shared/auth/oidc-setup.js`, etc.), mientras que AWS Managed Services administra rotación y políticas sobre Secrets Manager/KMS.
-  
-
-# Guías prácticas por capa (presentation, application, domain, infrastructure)
-
-## Guías de Programación por Capa
-Para la estructura de estas carpetas ver la estructura general del proyecto.
-
-Capas:
-- **presentation/** → cliente (Next.js / Vercel)
-- **application/**  → routers Express + middlewares de seguridad
-- **domain/**       → entidades/servicios puros y eventos de dominio
-- **infrastructure/** → adaptadores: DB (SQL/Mongo), cache (Redis), S3, clientes REST
-
-**Wiring mínimo (ejemplo PromptAds):**
-```js
-const express = require("express");
-const { requireAuth } = require("../../shared/auth/middleware");
-const adsRouter = require("./routes");
-
-const app = express();
-app.use(express.json());
-app.use("/api/v1", adsRouter);   // montar las rutas de ejemplo
-module.exports = app;
-```
-
-**Variables de entorno usadas en guías:**
-- `NEXT_PUBLIC_API_BASE` (frontend)
-- `INTERNAL_ALLOWLIST` lista de IPs separadas por coma (internal)
-- `S3_ASSETS_BUCKET`, `AWS_REGION`
-- `META_ADS_BASE`, `META_TOKEN`
-- `REDIS_HOST`
-
----
-
-
-
-
-
-/apps/prompt-content/
-├── db/
-│   ├── collections/
-│   │   ├── PCUsers.collection.json
-│   │   ├── PCExternal_Services.collection.json
-│   │   ├── PCApi_Call_Logs.collection.json
-│   │   ├── PCAi_Models_Catalog.collection.json
-│   │   ├── PCAi_Model_Logs.collection.json
-│   │   ├── PCContent_Types.collection.json
-│   │   ├── PCmedia.collection.json
-│   │   ├── PCContent_Requests.collection.json
-│   │   ├── PCClients.collection.json
-│   │   ├── PCSubscription_Plans.collection.json
-│   │   ├── PCFeatures.collection.json
-│   │   ├── PCPayment_Methods.collection.json
-│   │   ├── PCPayment_Schedules.collection.json
-│   │   ├── PCPayment_Transactions.collection.json
-│   │   └── PCCampaigns.collection.json
-│   ├── indexes/
-│   │   ├── PCUsers.indexes.json
-│   │   ├── PCExternal_Services.indexes.json
-│   │   ├── PCApi_Call_Logs.indexes.json
-│   │   ├── PCAi_Models_Catalog.indexes.json
-│   │   ├── PCAi_Model_Logs.indexes.json
-│   │   ├── PCContent_Types.indexes.json
-│   │   ├── PCmedia.indexes.json
-│   │   ├── PCContent_Requests.indexes.json
-│   │   ├── PCClients.indexes.json
-│   │   ├── PCSubscription_Plans.indexes.json
-│   │   ├── PCFeatures.indexes.json
-│   │   ├── PCPayment_Methods.indexes.json
-│   │   ├── PCPayment_Schedules.indexes.json
-│   │   ├── PCPayment_Transactions.indexes.json
-│   │   └── PCCampaigns.indexes.json
-│   └── seeds/
-│       ├── PCUsers.samples.json
-│       ├── PCContent_Types.samples.json
-│       ├── PCFeatures.samples.json
-│       └── PCSubscription_Plans.samples.json
-└── scripts/
-    ├── init-database.js
-    ├── migrate-collection.js
-    └── seed-data.js
+# 6. Diseño de Bases de Datos
 
 
 
@@ -2145,7 +1548,7 @@ module.exports = app;
 
 **Estructura de Directorios**
 
-El repository layer está organizado en tres directorios principales dentro de `apps/prompt-ads`. En `src/infrastructure/repositories/` están los archivos de implementación: `CampaignRepositorySP.js` usa stored procedures de SQL Server, mientras que `SubscriptionRepositoryORM.js` implementa el patrón con Sequelize. Los tests están en `scripts/`, separados en `test-subscription-writer.js` y `test-subscription-reader.js` para ORM, y archivos similares con prefijo `test-repository-` para stored procedures. La configuración de base de datos reside en `src/db/`, con `sql-server-connection.js` para conexiones directas y `sequelize-config.js` para ORM.
+El repository layer está organizado en tres directorios principales dentro de `apps/prompt-ads`. En `domains/infrastructure/repositories/` están los archivos de implementación: `CampaignRepositorySP.js` usa stored procedures de SQL Server, mientras que `SubscriptionRepositoryORM.js` implementa el patrón con Sequelize. Los tests están en `scripts/`, separados en `test-subscription-writer.js` y `test-subscription-reader.js` para ORM, y archivos similares con prefijo `test-repository-` para stored procedures. La configuración de base de datos reside en `src/db/`, con `sql-server-connection.js` para conexiones directas y `sequelize-config.js` para ORM.
 
 **Implementación con Stored Procedures**
 
@@ -2153,21 +1556,15 @@ Para el approach de stored procedures, creamos `CampaignRepositorySP.js` que enc
 
 **Implementación con ORM (Sequelize)**
 
-El approach ORM utiliza `SubscriptionRepositoryORM.js` que define operaciones CRUD sobre el modelo `Subscription`. Sequelize mapea automáticamente la tabla `PASubscriptions` mediante el modelo definido en `src/models/Subscription.js`, que especifica tipos de datos y mapeo de columnas. Los métodos `create()`, `findById()` y `findAll()` usan la API de Sequelize para generar queries SQL automáticamente. Los tests demuestran creación de múltiples registros y consultas con diferentes criterios, aprovechando la abstracción del ORM para código más expresivo.
+El approach ORM utiliza `SubscriptionRepositoryORM.js` que define operaciones CRUD sobre el modelo `Subscription`. Sequelize mapea automáticamente la tabla `PASubscriptions` mediante el modelo definido en `domains/models/Subscription.js`, que especifica tipos de datos y mapeo de columnas. Los métodos `create()`, `findById()` y `findAll()` usan la API de Sequelize para generar queries SQL automáticamente. Los tests demuestran creación de múltiples registros y consultas con diferentes criterios, aprovechando la abstracción del ORM para código más expresivo.
 
 **Configuración y Pruebas**
 
 La configuración de conexión difiere entre approaches: para SPs usamos conexión directa configurada en `sql-server-connection.js`, mientras que para ORM configuramos Sequelize en `sequelize-config.js` con opciones específicas para SQL Server. Las pruebas se ejecutan independientemente - primero escritura para generar datos, luego lectura para validarlos - permitiendo demostrar ambas operaciones requeridas. Cada archivo de test incluye logging detallado que muestra los queries generados y los resultados obtenidos, facilitando la verificación del funcionamiento correcto.
 
-**Separación de Responsabilidades**
-
-Mantenemos separación clara: los repositories solo manejan persistencia, los models definen estructura de datos, y los tests validan comportamiento. Los archivos están nombrados consistentemente indicando su tecnología (SP u ORM) y operación (writer o reader). Esta organización permite comparar directamente ambos approaches - stored procedures ofrecen máximo control y performance, mientras que ORM proporciona mayor productividad y portabilidad - cumpliendo con el requisito de implementar y probar ambos ejemplos para el repository layer.
-
-# Cache
-
 Para el punto solicitado de cache y connection pool, la solución implementada incluye:
 
-## 1. Connection Pool
+**Connection Pool**
 
 Ya está implementado tanto para Stored Procedures como para ORM, con parámetros:
 
@@ -2175,7 +1572,7 @@ Ya está implementado tanto para Stored Procedures como para ORM, con parámetro
 - **min**: conexiones reservadas
 - **idleTimeout**: liberación de conexiones inactivas
 
-## 2. Cache (previstas)
+**Cache** (previstas)
 
 Dado que no se requiere infraestructura Redis real, se agregaron previstas de cache en los repositories:
 
@@ -2185,8 +1582,10 @@ Dado que no se requiere infraestructura Redis real, se agregaron previstas de ca
 - Lugares donde se harían invalidaciones
 
 Esto demuestra cómo se integraría un sistema de cache distribuido en una arquitectura real.
-
 Además se deja preparado para futuras implementaciones sin romper los repositorios existentes.
 
 
-revisar namespace y el service name y que el archivos de k8s tambien coincida 
+
+
+
+TODO: revisar namespace y el service name y que el archivos de k8s tambien coincida 
