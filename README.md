@@ -1,6 +1,21 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
+
+## Índice
+* [**Métricas**](#1-métricas-no-funcionales)
+  * [Rendimiento](#11-rendimiento)
+  * [Escalabilidad](#12-escalabilidad)  
+  * [Reliability](#13-confiabilidad)
+  * [Availability](#14-disponibilidad)
+  * [Security](#15-seguridad)
+  * [Maintainability](#16-maintainability)
+  * [Interoperability](#17-interoperability)
+  * [Compliance](#18-compliance)
+  * [Extensibility](#19-extensibility)
+
+* [**DDD**](#2-domain-driven-design)
+
 **Estructura del proyecto**
 ```
 │
@@ -357,18 +372,6 @@ PromptSales - Ecosistema de Marketing con IA
 
 Para todas las métricas no funcionales y la estructura general del ecosistema PromptSales, incluyendo los tres subservicios (PromptContent, PromptAds y PromptCrm), se adopta una arquitectura **Serverless** desplegada en **AWS** mediante Knative sobre **Kubernetes** (EKS), con bases de datos relacionales sobre **SQL Server** y no relacionales sobre **MongoDB**. Así como el uso de **JavaScript (Node.js)** como framework para la capa de ejecución de microservicios, asegurando así la compatibilidad con el modelo de funciones isoladas y un escalado horizontal dinámico basado en demanda.
 
-
-## Index
-- [Performance](#rendimiento)
-- [Scalability](#scalability)  
-- [Reliability](#reliability)
-- [Availability](#availability)
-- [Security](#seguridad)
-- [Maintainability](#mantenibilidad)
-- [Interoperability](#interoperability)
-- [Compliance](#compliance)
-- [Extensibility](#extensibility)
-
 ## 1.1 Rendimiento
 
 ### Benchmark Aurora:
@@ -421,7 +424,7 @@ El ecosistema PromptSales utiliza Knative sobre Kubernetes para escalar dinámic
 
 **Archivo de configuración Kubernetes:**
 
-![kubernetes-config.yaml](/k8s/knative/kubernetes-config.yaml)
+[kubernetes-config.yaml](/k8s/knative/kubernetes-config.yaml)
 
 ## 1.3 Confiabilidad
 
@@ -1432,6 +1435,7 @@ src/apps/<subempresa>/
 - ACLs (para llamar a otros BC vía HTTP)
 
 ### Server y Rutas dentro de un Bounded Contex
+[server.js](src/apps/prompt-ads/server.js)
 ```javascript
 // server.js
 import express from "express";
@@ -1505,7 +1509,17 @@ La comunicación inter‑contexto:
 
 # 5. Diseño de Bases de Datos
 
+## Base de Datos PromptAds: (SQL Server)
 
+![Base de datos](assets/PromptAdsDataBase.png)
+
+**Versión en PDF:**  [Base de datos](assets/PromptAdsDataBase.pdf)
+
+**Schema:** [schema](src/apps/prompt-ads/db/schema/promptads_schema.sql)
+
+## Base de Datos PromptContent: (Mongo)
+
+**Colecciones**  [collections](src/apps/prompt-content/db/collections/)
 
 ## Implementación del Repository Layer
 

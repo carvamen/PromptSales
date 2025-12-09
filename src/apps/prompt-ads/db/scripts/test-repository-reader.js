@@ -1,5 +1,7 @@
 const CampaignRepositorySP = require('../../domains/repositories/CampaignRepositorySP');
 
+// cd src/apps/prompt-ads/db/scripts
+
 async function testReader() {
     console.log('📖 TESTEANDO SOLO LECTURA (READ)...\n');
     
