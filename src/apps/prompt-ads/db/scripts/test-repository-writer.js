@@ -1,7 +1,7 @@
-const CampaignRepositorySP = require('../../src/domains/infraestructure/repositories//CampaignRepositorySP');
+const CampaignRepositorySP = require('../../domains/repositories/CampaignRepositorySP');
 
 async function testWriter() {
-    console.log('🖊️  TESTEANDO SOLO ESCRITURA (CREATE)...\n');
+    console.log('  TESTEANDO SOLO ESCRITURA (CREATE)...\n');
     
     const repository = new CampaignRepositorySP();
     

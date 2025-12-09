@@ -1420,8 +1420,7 @@ src/apps/<subempresa>/
         controllers/
         services/
         models/
-        infrastructure/
-            repositories/
+        repositories/
 ```
 
 ### Flujo de Datos Dentro de un Bounded Context

@@ -1,4 +1,4 @@
-const CampaignRepositorySP = require('../../domains/infraestructure/repositories/CampaignRepositorySP');
+const CampaignRepositorySP = require('../../domains/repositories/CampaignRepositorySP');
 
 async function testReader() {
     console.log('📖 TESTEANDO SOLO LECTURA (READ)...\n');

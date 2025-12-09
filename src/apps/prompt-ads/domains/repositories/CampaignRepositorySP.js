@@ -1,27 +1,27 @@
-const { sql, getPool } = require('../../../db/sql-server-connection');
+const { sql, getPool } = require('../../db/sql-server-connection');
 
 class CampaignRepositorySP {
     constructor() {
     /*
-            PREVISTAS DE CACHE (no implementado por falta de infraestructura):
+        PREVISTAS DE CACHE (no implementado por falta de infraestructura):
 
-            - Aquí se inyectaría Redis o Memcached:
-                this.cache = new RedisClient();
+        - Aquí se inyectaría Redis o Memcached:
+            this.cache = new RedisClient();
 
-            - TTL recomendado: 300 segundos (5 minutos):
-                this.cacheTTL = 300;
+        - TTL recomendado: 300 segundos (5 minutos):
+            this.cacheTTL = 300;
 
-            - Estrategia: Cache-Aside
-                1. Buscar primero en cache
-                2. Si no está, consultar BD
-                3. Guardar resultado para futuras consultas
-                4. Invalidar en operaciones de escritura
+        - Estrategia: Cache-Aside
+            1. Buscar primero en cache
+            2. Si no está, consultar BD
+            3. Guardar resultado para futuras consultas
+            4. Invalidar en operaciones de escritura
 
-            - NOTA: Si el cache falla → fallback a BD sin afectar operación.
+        - NOTA: Si el cache falla → fallback a BD sin afectar operación.
 
-            - NOTA: Los SPs facilitan saber EXACTAMENTE qué invalidar
-              después de cada operación (alta, edición, etc.).
-        */
+        - NOTA: Los SPs facilitan saber EXACTAMENTE qué invalidar
+            después de cada operación (alta, edición, etc.).
+    */
     }
     
     async create(campaignData) {
