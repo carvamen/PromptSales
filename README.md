@@ -18,354 +18,183 @@ PromptSales - Ecosistema de Marketing con IA
 
 **Estructura del proyecto**
 ```
+📦 PromptSales
 │
+├── 📄 .eslint.cjs
+├── 📄 buildspec.yml
+├── 📄 package.json
 ├── 📄 README.md
 │
-├── 🖼️ assets/
-│   ├── DDD-DataFlow.svg
-│   ├── Diagrama-Arquitectura.svg
-│   └── DiagramaDeArquitectura.pdf
+├── 📂 .github
+│   └── 📂 workflows
+│       ├── 📄 basic-check.yml
+│       ├── 📄 ci-basic.yml
+│       └── 📄 deploy.yml
 │
-├── 📑 contracts/
-│   └── 🌐 rest/
-│       ├── identity-openapi.yaml
-│       ├── payment-openapi.yaml
-│       └── subscription-openapi.yaml
+├── 📂 assets
 │
-├── ☸️ k8s/
-│   ├── 🚪 api-gateway/
-│   │   ├── kong-config.yaml
-│   │   ├── kong-deployment.yaml
-│   │   ├── kong-plugins.yaml
-│   │   └── kong-routes.yaml
-│   │
-│   ├── ⚙️ eks/
-│   │   ├── eksctl-cluster.yaml
-│   │   ├── etcd-encryption.yaml
-│   │   └── prompt-ads.yaml
-│   │
-│   ├── 🔐 external-secrets/
-│   │   ├── external-secret.yaml
-│   │   ├── secret-store.yaml
-│   │   └── service-account.yaml
-│   │
-│   ├── 🌐 ingress/
-│   │   └── alb-tls13.yaml
-│   │
-│   ├️── ⚡ knative/
-│   │   ├── identidad.yaml
-│   │   ├── kubernetes-config.yaml
-│   │   ├── pagos.yaml
-│   │   └── suscripciones.yaml
-│   │
-│   ├── 🍃 mongodb/
-│   │   └── mongo-connection.json
-│   │
-│   ├── 🗃️ redis/
-│   │   └── elasticache-redis.yaml
-│   │
-│   └── 🗄️ sqlserver/
-│       └── sqlserver-connection.json
+├── 📂 contracts
+│   └── 📂 rest
+│       ├── 📄 identity-openapi.yaml
+│       ├── 📄 payment-openapi.yaml
+│       └── 📄 subscription-openapi.yaml
 │
-├── 🔄 proxy-layer/
-│   ├── 📄 package.json
-│   ├── 🔧 lambdaHandler.js
+├── 📂 kubernetes
+│   ├── 📂 api-gateway
+│   │   ├── 📄 kong-config.yaml
+│   │   ├── 📄 kong-deployment.yaml
+│   │   ├── 📄 kong-plugins.yaml
+│   │   └── 📄 kong-routes.yaml
 │   │
-│   ├── 📡 clients/
-│   │   ├── AdsChannelClient.js
-│   │   ├── ContentChannelClient.js
-│   │   └── CRMChannelClient.js
+│   ├── 📂 eks
+│   │   ├── 📄 eksctl-cluster.yaml
+│   │   ├── 📄 etcd-encryption.yaml
+│   │   └── 📄 prompt-ads.yaml
 │   │
-│   ├── 🔌 proxies/
-│   │   ├── AdsProxy.js
-│   │   ├── ContentProxy.js
-│   │   └── CRMProxy.js
+│   ├── 📂 external-secrets
+│   │   ├── 📄 external-secret-ads-sql.yaml
+│   │   ├── 📄 external-secret-auth0.yaml
+│   │   ├── 📄 external-secret-crm-sql.yaml
+│   │   ├── 📄 external-secret-mongo.yaml
+│   │   ├── 📄 secret-store.yaml
+│   │   └── 📄 service-account.yaml
 │   │
-│   └── 🛠️ utils/
-│       ├── CircuitBreaker.js
-│       └── RedisClient.js
+│   ├── 📂 ingress
+│   │   └── 📄 alb-tls13.yaml
+│   │
+│   ├── 📂 knative
+│   │   ├── 📄 kubernetes-config.yaml
+│   │   ├── 📄 prompt-ads.yaml
+│   │   ├── 📄 prompt-content.yaml
+│   │   ├── 📄 prompt-crm.yaml
+│   │   └── 📄 prompt-sales.yaml
+│   │
+│   ├── 📂 mongodb
+│   ├── 📂 redis
+│   └── 📂 sqlserver
 │
-├── 💻 src/
-│   ├── 🚀 apps/
-│   │   ├── 🎯 prompt-ads/
+├── 📂 src
+│   ├── 📂 applications
+│   │   ├── 📂 prompt-ads
 │   │   │   ├── 📄 routes.js
 │   │   │   ├── 📄 server.js
 │   │   │   │
-│   │   │   ├── 🗄️ db/
-│   │   │   │   ├── 📄 sequlize-config.js
+│   │   │   ├── 📂 acl
+│   │   │   ├── 📂 clients
+│   │   │   ├── 📂 contracts
+│   │   │   ├── 📂 database
+│   │   │   │   ├── 📄 redis-client.js
+│   │   │   │   ├── 📄 sequelize-config.js
 │   │   │   │   ├── 📄 sql-server-connection.js
-│   │   │   │   │
-│   │   │   │   ├── 📋 schema/
-│   │   │   │   │   └── promptads_schema.sql
-│   │   │   │   │
-│   │   │   │   ├── 📜 scripts/
-│   │   │   │   │   ├── test-repository-orm-reader.js
-│   │   │   │   │   ├── test-repository-orm-writer.js
-│   │   │   │   │   ├── test-repository-reader.js
-│   │   │   │   │   └── test-repository-writer.js
-│   │   │   │   │
-│   │   │   │   └── 🌱 seed/
-│   │   │   │       └── initial_data.sql
+│   │   │   │   ├── 📂 schema
+│   │   │   │   ├── 📂 scripts
+│   │   │   │   ├── 📂 migrations
+│   │   │   │   └── 📂 seed
 │   │   │   │
-│   │   │   ├── 📁 src/
-│   │   │   │   └── 🏷️ models/
-│   │   │   │       ├── Campaign.js
-│   │   │   │       └── Subscription.js
+│   │   │   ├── 📂 domains
+│   │   │   │   ├── 📂 controllers
+│   │   │   │   ├── 📂 models
+│   │   │   │   ├── 📂 repositories
+│   │   │   │   └── 📂 services
 │   │   │   │
-│   │   │   └── 🧪 __tests__/
-│   │   │       └── ads.routes.test.js
+│   │   │   └── 📂 tests
 │   │   │
-│   │   ├── 📝 prompt-content/
+│   │   ├── 📂 prompt-content
+│   │   │   ├── 📄 migrate-mongo-config.js
+│   │   │   ├── 📄 S3Client.js
+│   │   │   ├── 📄 routes.js
 │   │   │   ├── 📄 server.js
 │   │   │   │
-│   │   │   ├── 🗄️ db/
-│   │   │   │   ├── 📂 collections/
-│   │   │   │   │   ├── collectionscreate.js
-│   │   │   │   │   ├── PCAi_Models_Catalog.collection.json
-│   │   │   │   │   ├── PCAi_Model_Logs.collection.json
-│   │   │   │   │   ├── PCApi_Call_Logs.collection.json
-│   │   │   │   │   ├── PCCampaigns.collection.json
-│   │   │   │   │   ├── PCClients.collection.json
-│   │   │   │   │   ├── PCContent_Requests.collection.json
-│   │   │   │   │   ├── PCContent_Types.collection.json
-│   │   │   │   │   ├── PCExternal_Services.collection.json
-│   │   │   │   │   ├── PCFeatures.collection.json
-│   │   │   │   │   ├── PCmedia.collection.json
-│   │   │   │   │   ├── PCPayment_Methods.collection.json
-│   │   │   │   │   ├── PCPayment_Schedules.collection.json
-│   │   │   │   │   ├── PCPayment_Transactions.collection.json
-│   │   │   │   │   ├── PCSubscription_Plans.collection.json
-│   │   │   │   │   └── PCUsers.collection.json
-│   │   │   │   │
-│   │   │   │   ├── 📊 indexes/
-│   │   │   │   │   ├── PCAi_Models_Catalog.indexes.json
-│   │   │   │   │   ├── PCAi_Model_Logs.indexes.json
-│   │   │   │   │   ├── PCApi_Call_Logs.indexes.json
-│   │   │   │   │   ├── PCCampaigns.indexes.json
-│   │   │   │   │   ├── PCClients.indexes.json
-│   │   │   │   │   ├── PCContent_Requests.indexes.json
-│   │   │   │   │   ├── PCContent_Types.indexes.json
-│   │   │   │   │   ├── PCExternal_Services.indexes.json
-│   │   │   │   │   ├── PCFeatures.indexes.json
-│   │   │   │   │   ├── PCmedia.indexes.json
-│   │   │   │   │   ├── PCPayment_Methods.indexes.json
-│   │   │   │   │   ├── PCPayment_Schedules.indexes.json
-│   │   │   │   │   ├── PCPayment_Transactions.indexes.json
-│   │   │   │   │   ├── PCSubscription_Plans.indexes.json
-│   │   │   │   │   └── PCUsers.indexes.json
-│   │   │   │   │
-│   │   │   │   └── 📜 scripts/
-│   │   │   │       └── init-database.js
+│   │   │   ├── 📂 acl
+│   │   │   ├── 📂 clients
+│   │   │   ├── 📂 contracts
+│   │   │   ├── 📂 database
+│   │   │   │   ├── 📂 collections
+│   │   │   │   ├── 📂 indexes
+│   │   │   │   ├── 📂 migrations
+│   │   │   │   └── 📂 scripts
 │   │   │   │
-│   │   │   └── 👷 workers/
-│   │   │       └── ia-worker.js
+│   │   │   ├── 📂 domains
+│   │   │   │   ├── 📂 controllers
+│   │   │   │   ├── 📂 models
+│   │   │   │   ├── 📂 repositories
+│   │   │   │   └── 📂 services
+│   │   │   │
+│   │   │   └── 📂 workers
 │   │   │
-│   │   └── 👥 prompt-crm/
-│   │       └── server.js
+│   │   ├── 📂 prompt-crm
+│   │   │   ├── 📄 routes.js
+│   │   │   ├── 📄 server.js
+│   │   │   │
+│   │   │   ├── 📂 acl
+│   │   │   ├── 📂 clients
+│   │   │   ├── 📂 contracts
+│   │   │   ├── 📂 database
+│   │   │   │   └──📂 migrations
+│   │   │   │
+│   │   │   └── 📂 domains
+│   │   │   │   ├── 📂 controllers
+│   │   │   │   ├── 📂 models
+│   │   │   │   ├── 📂 repositories
+│   │   │   │   └── 📂 services
+│   │   │   │
+│   │   └── 📂 prompt-sales
+│   │   │   ├── 📄 routes.js
+│   │   │   ├── 📄 server.js
+│   │   │   │
+│   │   │   ├── 📂 acl
+│   │   │   ├── 📂 clients
+│   │   │   ├── 📂 contracts
+│   │   │   ├── 📂 database
+│   │   │   │   └──📂 migrations
+│   │   │   │
+│   │   │   └── 📂 domains
+│   │   │   │   ├── 📂 controllers
+│   │   │   │   ├── 📂 models
+│   │   │   │   ├── 📂 repositories
+│   │   │   │   └── 📂 services
 │   │
-│   ├── 🏗️ domains/
-│   │   ├── 🎯 ads/
-│   │   │   ├── campaign.entity.js
-│   │   │   └── campaign.service.js
+│   ├── 📂 gateways
+│   │   ├── 📂 mcp
 │   │   │
-│   │   ├── 📝 content/
-│   │   │   └── 🎮 controllers/
-│   │   │       └── ContentController.js
+│   │   ├── 📂 messaging
 │   │   │
-│   │   ├── 🧠 ia/
-│   │   │   ├── 🔐 acl/
-│   │   │   │   ├── AIACL.js
-│   │   │   │   ├── AIACL2.js
-│   │   │   │   └── IAACL.js
-│   │   │   │
-│   │   │   ├── 📑 contracts/
-│   │   │   │   ├── AIAsyncContractFactory.js
-│   │   │   │   ├── IAContractFactory.js
-│   │   │   │   │
-│   │   │   │   └── 🔄 versions/
-│   │   │   │       ├── v1/
-│   │   │   │       │   ├── AIAsyncContractV1.js
-│   │   │   │       │   ├── AiContractV1.js
-│   │   │   │       │   └── IAContractV1.js
-│   │   │   │       │
-│   │   │   │       └── v2/
-│   │   │   │           └── AIAsyncContractV2.js
-│   │   │   │
-│   │   │   ├── 🎮 controllers/
-│   │   │   │   ├── AsyncIAController.js
-│   │   │   │   ├── IACallbackController.js
-│   │   │   │   └── IAController.js
-│   │   │   │
-│   │   │   ├── 🏷️ models/
-│   │   │   │   └── IATask.js
-│   │   │   │
-│   │   │   ├── 💾 repositories/
-│   │   │   │   └── AIRequestRepository.js
-│   │   │   │
-│   │   │   ├── ⚙️ services/
-│   │   │   │   └── AsyncIAService.js
-│   │   │   │
-│   │   │   └── 👷 workers/
-│   │   │       ├── IAWorker.js
-│   │   │       └── PromptWorker.js
-│   │   │
-│   │   ├── 👤 identity/
-│   │   │   ├── 📑 contracts/
-│   │   │   │   └── IdentityContract.js
-│   │   │   │
-│   │   │   ├── 🎮 controllers/
-│   │   │   │   ├── AuthenticationController.js
-│   │   │   │   ├── LoginController.js
-│   │   │   │   └── UserProfileController.js
-│   │   │   │
-│   │   │   ├── 🏷️ entities/
-│   │   │   │   ├── Role.js
-│   │   │   │   ├── User.js
-│   │   │   │   └── UserProfile.js
-│   │   │   │
-│   │   │   └── 💾 repositories/
-│   │   │       ├── UserProfileRepository.js
-│   │   │       ├── UserRepository.js
-│   │   │       │
-│   │   │       └── 🎭 interfaces/
-│   │   │           └── IUserRepository.js
-│   │   │
-│   │   ├── 💳 payments/
-│   │   │   ├── 📑 contracts/
-│   │   │   │   └── PaymentContract.js
-│   │   │   │
-│   │   │   └── 🎮 controllers/
-│   │   │       ├── InvoiceController.js
-│   │   │       ├── PaymentController.js
-│   │   │       └── RefundController.js
-│   │   │
-│   │   └── 📅 subscriptions/
-│   │       ├── 🔐 acl/
-│   │       │   └── SubscriptionACL.js
-│   │       │
-│   │       ├── 📑 contracts/
-│   │       │   ├── SubscriptionContractFactory.js
-│   │       │   ├── SubscriptionContractMapper.js
-│   │       │   │
-│   │       │   └── 🔄 versions/
-│   │       │       ├── v1/
-│   │       │       │   └── SubscriptionContractV1.js
-│   │       │       │
-│   │       │       ├── v2/
-│   │       │       │   └── SubscriptionContractV2.js
-│   │       │       │
-│   │       │       └── v3/
-│   │       │           └── SubscriptionContractV3.js
-│   │       │
-│   │       ├── 🎮 controllers/
-│   │       │   ├── SubscriptionsAcquisitionController.js
-│   │       │   ├── SubscriptionsCancellationController.js
-│   │       │   └── SubscriptionsRenewalController.js
-│   │       │
-│   │       ├── 🏷️ entities/
-│   │       │   ├── BillingCycle.js
-│   │       │   ├── Plan.js
-│   │       │   └── Subscription.js
-│   │       │
-│   │       ├── 💾 repositories/
-│   │       │   ├── PlanRepository.js
-│   │       │   ├── SubscriptionRepository.js
-│   │       │   │
-│   │       │   └── 🎭 interfaces/
-│   │       │       └── ISubscriptionRepository.js
-│   │       │
-│   │       └── ⚙️ services/
-│   │           └── SubscriptionActualizationService.js
+│   │   └── 📂 webhooks
 │   │
-│   ├── 🌉 gateways/
-│   │   ├── 🤖 mcp/
-│   │   │   ├── AdsOrchestratorClient.js
-│   │   │   └── MessageBusClient.js
-│   │   │
-│   │   ├── 📨 messaging/
-│   │   │   └── publisher.js
-│   │   │
-│   │   └── 🪝 webhooks/
-│   │       ├── receiver.js
-│   │       └── verifySignature.js
+│   ├── 📂 integration
+│   │   └── 📄 setup.js
 │   │
-│   ├── 🏗️ infrastructure/
-│   │   ├── 🗃️ cache/
-│   │   │   └── redisClient.js
-│   │   │
-│   │   ├── 💾 repositories/
-│   │   │   ├── CampaignRepositoryORM.js
-│   │   │   ├── CampaignRepositorySP.js
-│   │   │   └── SubscriptionRepositoryORM.js
-│   │   │
-│   │   ├── 🌐 rest/
-│   │   │   └── MetaAdsClient.js
-│   │   │
-│   │   ├── ☁️ s3/
-│   │   │   └── S3Client.js
-│   │   │
-│   │   └── 🗄️ sql/
-│   │       └── SqlCampaignRepo.js
+│   ├── 📂 presentation
+│   │   └── 📄 fetchClient.js
 │   │
-│   ├── 🔗 integration/
-│   │   └── setup.js
-│   │
-│   ├── 🧪 jest/
-│   │   └── SubscriptionTests.js
-│   │
-│   ├── 🎨 presentation/
-│   │   └── fetchClient.js
-│   │
-│   └── 🔗 shared/
+│   └── 📂 shared
 │       ├── 📄 ACLRegistry.js
 │       │
-│       ├── 🔐 acl/
-│       │   ├── ACLRegistry.js
-│       │   └── BaseACL.js
+│       ├── 📂 auth
+│       │   ├── 📄 middleware.js
+│       │   └── 📄 oidc-setup.js
 │       │
-│       ├── 🔑 auth/
-│       │   ├── middleware.js
-│       │   └── oidc-setup.js
+│       ├── 📂 aws
+│       │   ├── 📄 dependencies.js
+│       │   └── 📄 SQSService.js
 │       │
-│       ├── ☁️ aws/
-│       │   ├── dependencies.js
-│       │   └── SQSService.js
-│       │
-│       ├── 📑 contracts/
-│       │   ├── BaseContract.js
-│       │   └── BaseVersionedContract.js
-│       │
-│       ├── 🌐 http/
-│       │   ├── circuitBreakerClient.js
-│       │   ├── circuitBreakerRedis.js
-│       │   ├── errors.js
-│       │   └── idempotency.js
-│       │
-│       ├── ⏰ jobs/
-│       │   └── JobStore.js
-│       │
-│       ├── 📊 observability/
-│       │   ├── logger.js
-│       │   └── tracing.js
-│       │
-│       └── 🛡️ security/
-│           ├── allowlist.js
-│           ├── callbackSigner.js
-│           ├── rate-limit.js
-│           ├── requireScope.js
-│           └── validators.js
+│       ├── 📂 http
+│       ├── 📂 jobs
+│       ├── 📂 observability
+│       └── 📂 security
+│           ├── 📄 allowlist.js
+│           ├── 📄 callbackSigner.js
+│           ├── 📄 rate-limit.js
+│           ├── 📄 requireScope.js
+│           └── 📄 validators.js
 │
-├── 🌐 web/
-│   └── vercel.json
+├── 📂 web
+│   └── 📄 vercel.json
 │
-└── 🪝 webhooks/
-    ├── 📄 topics.md
-    │
-    └── 📋 schemas/
-        ├── ads.campaign.created.json
-        └── crm.lead.created.json
-
-
+└── 📂 webhooks
+    └── 📂 schemas
+        ├── 📄 ads.campaign.created.json
+        └── 📄 crm.lead.created.json
 ```
 
 # 1. Métricas no funcionales
@@ -561,7 +390,7 @@ Tomando en cuenta un tiempo promedio de recuperación de 1.7 minutos, se cumplir
 - Flujo estándar Authorization Code con autenticación de cliente
 
 **Flujo de autenticación:**
-![oidc-setup.js](/src/shared/auth/oidc-setup.js)
+[oidc-setup.js](/src/shared/auth/oidc-setup.js)
 
 ```javascript
 // oidc-setup.js - OIDC Client Configuration
@@ -582,7 +411,7 @@ app.get('/auth/login', (req, res) => {
 ```
 
 **Middleware de Validación JWT**
-![middleware.js](/src/shared/auth/middleware.js)
+[middleware.js](/src/shared/auth/middleware.js)
 ```javascript
 // middleware.js - Validación Stateless de JWT
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -626,7 +455,7 @@ export async function requireAuth(req, res, next) {
 ```
 
 **Ejemplo de Implementación del Middleware:**
-![server.js](/src/apps/prompt-content/server.js)
+[server.js](/src/apps/prompt-content/server.js)
 ```javascript
 // apps/prompt-content/server.js
 import { requireAuth } from '../../shared/auth/middleware.js';
@@ -688,7 +517,7 @@ k8s/
 ```
 
 **Configuración del Service Account para IRSA:**
-![service-account.yaml](/k8s/external-secrets/service-account.yaml)
+[service-account.yaml](/k8s/external-secrets/service-account.yaml)
 ```yaml
 # k8s/external-secrets/service-account.yaml
 apiVersion: v1
@@ -701,7 +530,7 @@ metadata:
 ```
 
 **Configuración de AWS SecretStore con IRSA:**
-![secret-store.yaml](/k8s/external-secrets/secret-store.yaml)
+[secret-store.yaml](/k8s/external-secrets/secret-store.yaml)
 ```yaml
 # k8s/external-secrets/secret-store.yaml
 apiVersion: external-secrets.io/v1beta1
@@ -720,7 +549,7 @@ spec:
 ```
 
 **External Secret para Auth0:**
-![external-secret.yaml](/k8s/external-secrets/external-secret.yaml)
+[external-secret.yaml](/k8s/external-secrets/external-secret.yaml)
 ```yaml
 # k8s/external-secrets/external-secret.yaml
 apiVersion: external-secrets.io/v1beta1
@@ -745,7 +574,7 @@ spec:
 ```
 
 **Integración del Servicio Knative:**
-![prompt-content.yaml](/k8s/knative/prompt-content.yaml)
+[prompt-content.yaml](/k8s/knative/prompt-content.yaml)
 ```yaml
 # k8s/knative/prompt-content.yaml
 apiVersion: serving.knative.dev/v1
@@ -795,7 +624,7 @@ Usaremos: SQL Server, MongoDB y Redis.
   - En tránsito: TLS (TransitEncryptionEnabled: true).
 
 **Ingress ALB (TLS 1.3)**
-![alb-tls13.yaml](/k8s/ingress/alb-tls13.yaml)
+[alb-tls13.yaml](/k8s/ingress/alb-tls13.yaml)
 ```yaml
 # k8s/ingress/alb-tls13.yaml
 apiVersion: networking.k8s.io/v1
@@ -823,7 +652,7 @@ spec:
 ```
 
 **Conexión SQL Server**
-![sqlserver-connection.json](/k8s/sqlserver/sqlserver-connection.json)
+[sqlserver-connection.json](/k8s/sqlserver/sqlserver-connection.json)
 ```JSON
 {
   "driver": "msnodesqlv8 or tedious",
@@ -842,7 +671,7 @@ spec:
 
 
 **Conexión MongoDB**
-![mongo-connection.json](/k8s/mongodb/mongo-connection.json)
+[mongo-connection.json](/k8s/mongodb/mongo-connection.json)
 ```JSON
 {
   "uri": "mongodb+srv://USER:PASS@cluster0.xxxxx.mongodb.net/promptsales?retryWrites=true&w=majority&tls=true",
@@ -853,7 +682,7 @@ spec:
 ```
 
 **ElastiCache Redis**
-![elasticache-redis.yaml](/k8s/redis/elasticache-redis.yaml)
+[elasticache-redis.yaml](/k8s/redis/elasticache-redis.yaml)
 ```yaml
 # k8s/redis/elasticache-redis.yaml 
 AWSTemplateFormatVersion: '2010-09-09'
@@ -876,7 +705,7 @@ Resources:
 ```
 
 **EKS — etcd Encryption**
-![etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
+[etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
 ```yaml
 # k8s/eks/etcd-encryption.yaml
 apiVersion: apiserver.config.k8s.io/v1
@@ -892,7 +721,7 @@ resources:
 ```
 
 **TLS hacia Redis**
-![etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
+[etcd-encryption.yaml](/k8s/eks/etcd-encryption.yaml)
 ```javascript
 // nodejs/redis-tls.js
 
@@ -1482,6 +1311,8 @@ Además, cada dominio interno puede tener tests unitarios para:
 # 3. Diagrama de arquitectura
 
 ![Diagrama de arquitectura](assets/Diagrama-Arquitectura.svg)
+
+**Versión en PDF:**  [Diagrama de Arquitectura](assets/Diagrama-Arquitectura.pdf)
 
 # 4. Patrones de Arquitectura
 
