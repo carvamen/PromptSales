@@ -1,6 +1,8 @@
 # PromptSales
 PromptSales - Ecosistema de Marketing con IA
 
+* Carlos Ávalos Mendieta 
+
 
 ## Índice
 * [**Métricas**](#1-métricas-no-funcionales)
@@ -1368,7 +1370,7 @@ El approach ORM utiliza `SubscriptionRepositoryORM.js` que define operaciones CR
 
 **Configuración y Pruebas**
 
-La configuración de conexión difiere entre approaches: para SPs usamos conexión directa configurada en `sql-server-connection.js`, mientras que para ORM configuramos Sequelize en `sequelize-config.js` con opciones específicas para SQL Server. Las pruebas se ejecutan independientemente - primero escritura para generar datos, luego lectura para validarlos - permitiendo demostrar ambas operaciones requeridas. Cada archivo de test incluye logging detallado que muestra los queries generados y los resultados obtenidos, facilitando la verificación del funcionamiento correcto.
+La configuración de conexión difiere entre approaches: para SPs usamos conexión directa configurada en `sql-server-connection.js`, mientras que para ORM configuramos Sequelize en `sequelize-config.js` con opciones específicas para SQL Server. Las pruebas se ejecutan independientemente, primero escritura para generar datos, luego lectura para validarlos, permitiendo demostrar ambas operaciones requeridas. Cada archivo de test incluye logging detallado que muestra los queries generados y los resultados obtenidos, facilitando la verificación del funcionamiento correcto.
 
 Para el punto solicitado de cache y connection pool, la solución implementada incluye:
 
@@ -1441,6 +1443,3 @@ Usamos **Kong Gateway** para el routing de APIs. Configuración en [k8s/api-gate
 - **ALB** (Application Load Balancer) - Balanceo de carga
 - **SNS** - Mensajería y eventos asíncronos
 
-
-
-TODO: revisar namespace y el service name y que el archivos de k8s tambien coincida 
